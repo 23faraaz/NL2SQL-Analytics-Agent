@@ -1,0 +1,49 @@
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: ${DB_NAME}
+      POSTGRES_USER: ${DB_USER}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+    volumes:
+      # Postgres's entrypoint auto-runs any .sql file found here on first
+      # container start - this is what seeds the database without any
+      # manual step.
+      - ./sql/seed.sql:/docker-entrypoint-initdb.d/seed.sql:ro
+      - db_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER} -d ${DB_NAME}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - nl2sql-net
+
+  app:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile
+    ports:
+      - "8501:8501"
+    environment:
+      DB_HOST: db
+      DB_PORT: 5432
+      DB_NAME: ${DB_NAME}
+      DB_USER: ${DB_USER}
+      DB_PASSWORD: ${DB_PASSWORD}
+      GEMINI_API_KEY: ${GEMINI_API_KEY}
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - nl2sql-net
+
+# Explicit bridge network rather than the Compose default - makes the
+# network boundary a deliberate, visible decision rather than an implicit
+# one, and is a small interview talking point in itself.
+networks:
+  nl2sql-net:
+    driver: bridge
+
+volumes:
+  db_data:

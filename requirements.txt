@@ -1,0 +1,9 @@
+streamlit
+psycopg2-binary
+anthropic
+pandas
+python-dotenv
+sqlparse
+google-genai
+pandas
+altair

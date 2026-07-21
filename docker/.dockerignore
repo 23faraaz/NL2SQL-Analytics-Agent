@@ -1,0 +1,29 @@
+# Keeps the build context small (faster builds) and, more importantly,
+# guarantees .env and git history never end up inside a layer even by
+# accident - COPY app/ can't leak what's excluded here regardless of
+# what someone runs it from.
+
+.git/
+.github/
+.gitignore
+
+.env
+*.env
+!.env.example
+
+__pycache__/
+*.pyc
+.pytest_cache/
+.ruff_cache/
+venv/
+.venv/
+
+tests/
+docs/
+terraform/
+scripts/
+*.md
+
+.vscode/
+.idea/
+.DS_Store
