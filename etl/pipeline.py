@@ -1,87 +1,179 @@
 from etl.io import load_raw_csv, save_processed_csv
+from etl.logging_config import get_logger
 from etl.transform import (
     transform_categories,
     transform_customers,
     transform_order_items,
     transform_orders,
+    transform_payments,
     transform_products,
+)
+from etl.validate import (
+    validate_all_processed,
+    validate_all_raw,
+    validate_all_relationships,
 )
 
 
+logger = get_logger(__name__)
+
+
 def run_transformation_pipeline() -> None:
-    """Run the current extract, transform and CSV staging pipeline."""
+    """
+    Run the ETL transformation and CSV staging pipeline.
+    """
 
-    print("Starting ETL transformation pipeline...\n")
+    logger.info("Starting ETL transformation pipeline")
 
-    raw_customers = load_raw_csv(
-        "olist_customers_dataset.csv"
-    )
+    try:
+        logger.info("Loading raw datasets")
 
-    raw_categories = load_raw_csv(
-        "product_category_name_translation.csv"
-    )
+        raw_customers = load_raw_csv(
+            "olist_customers_dataset.csv"
+        )
 
-    raw_products = load_raw_csv(
-        "olist_products_dataset.csv"
-    )
+        raw_categories = load_raw_csv(
+            "product_category_name_translation.csv"
+        )
 
-    raw_orders = load_raw_csv(
-        "olist_orders_dataset.csv"
-    )
+        raw_products = load_raw_csv(
+            "olist_products_dataset.csv"
+        )
 
-    raw_order_items = load_raw_csv(
-        "olist_order_items_dataset.csv"
-    )
+        raw_orders = load_raw_csv(
+            "olist_orders_dataset.csv"
+        )
 
-    customers = transform_customers(
-        raw_customers
-    )
+        raw_order_items = load_raw_csv(
+            "olist_order_items_dataset.csv"
+        )
 
-    categories = transform_categories(
-        raw_categories
-    )
+        raw_payments = load_raw_csv(
+            "olist_order_payments_dataset.csv"
+        )
 
-    products = transform_products(
-        raw_products,
-        categories,
-    )
+        logger.info(
+            "Loaded raw datasets: customers=%d, categories=%d, "
+            "products=%d, orders=%d, order_items=%d, payments=%d",
+            len(raw_customers),
+            len(raw_categories),
+            len(raw_products),
+            len(raw_orders),
+            len(raw_order_items),
+            len(raw_payments),
+        )
 
-    orders = transform_orders(
-        raw_orders,
-        customers,
-    )
+        validate_all_raw(
+            customers=raw_customers,
+            categories=raw_categories,
+            products=raw_products,
+            orders=raw_orders,
+            order_items=raw_order_items,
+            payments=raw_payments,
+        )
 
-    order_items = transform_order_items(
-        raw_order_items,
-        orders,
-        products,
-    )
+        logger.info("Transforming customers")
+        customers = transform_customers(
+            raw_customers
+        )
 
-    save_processed_csv(
-        customers,
-        "customers.csv",
-    )
+        logger.info("Transforming categories")
+        categories = transform_categories(
+            raw_categories
+        )
 
-    save_processed_csv(
-        categories,
-        "categories.csv",
-    )
+        logger.info("Transforming products")
+        products = transform_products(
+            raw_products,
+            categories,
+        )
 
-    save_processed_csv(
-        products,
-        "products.csv",
-    )
+        logger.info("Transforming orders")
+        orders = transform_orders(
+            raw_orders,
+            customers,
+        )
 
-    save_processed_csv(
-        orders,
-        "orders.csv",
-    )
+        logger.info("Transforming order items")
+        order_items = transform_order_items(
+            raw_order_items,
+            orders,
+            products,
+        )
 
-    save_processed_csv(
-        order_items,
-        "order_items.csv",
-    )
+        logger.info("Transforming payments")
+        payments = transform_payments(
+            raw_payments,
+            orders,
+        )
 
-    print(
-        "\nETL transformation pipeline completed successfully."
+        logger.info(
+            "Transformation row counts: customers=%d, categories=%d, "
+            "products=%d, orders=%d, order_items=%d, payments=%d",
+            len(customers),
+            len(categories),
+            len(products),
+            len(orders),
+            len(order_items),
+            len(payments),
+        )
+
+        validate_all_processed(
+            customers=customers,
+            categories=categories,
+            products=products,
+            orders=orders,
+            order_items=order_items,
+            payments=payments,
+        )
+
+        validate_all_relationships(
+            customers=customers,
+            categories=categories,
+            products=products,
+            orders=orders,
+            order_items=order_items,
+            payments=payments,
+        )
+
+        logger.info("Saving processed datasets")
+
+        save_processed_csv(
+            customers,
+            "customers.csv",
+        )
+
+        save_processed_csv(
+            categories,
+            "categories.csv",
+        )
+
+        save_processed_csv(
+            products,
+            "products.csv",
+        )
+
+        save_processed_csv(
+            orders,
+            "orders.csv",
+        )
+
+        save_processed_csv(
+            order_items,
+            "order_items.csv",
+        )
+
+        save_processed_csv(
+            payments,
+            "payments.csv",
+        )
+
+    except Exception:
+        logger.exception(
+            "ETL transformation pipeline failed"
+        )
+        raise
+
+    logger.info(
+        "ETL transformation pipeline completed successfully"
     )

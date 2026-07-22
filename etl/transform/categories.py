@@ -11,7 +11,11 @@ CATEGORY_OUTPUT_COLUMNS = [
 def transform_categories(
     categories: pd.DataFrame,
 ) -> pd.DataFrame:
-    """Transform the Olist category translation lookup."""
+    """
+    Transform the Olist category translation lookup.
+
+    Category ID 0 is reserved for unknown or unmapped products.
+    """
 
     required_columns = {
         "product_category_name",
@@ -49,6 +53,24 @@ def transform_categories(
         0,
         "category_id",
         range(1, len(transformed) + 1),
+    )
+
+    unknown_category = pd.DataFrame(
+        [
+            {
+                "category_id": 0,
+                "source_category_name": "unknown",
+                "category_name": "Unknown",
+            }
+        ]
+    )
+
+    transformed = pd.concat(
+        [
+            unknown_category,
+            transformed[CATEGORY_OUTPUT_COLUMNS],
+        ],
+        ignore_index=True,
     )
 
     return transformed[CATEGORY_OUTPUT_COLUMNS]

@@ -4,6 +4,10 @@ from typing import Any
 import pandas as pd
 
 from etl.config import PROCESSED_DATA_DIR, RAW_DATA_DIR
+from etl.logging_config import get_logger
+
+
+logger = get_logger(__name__)
 
 
 def load_raw_csv(
@@ -25,7 +29,7 @@ def load_raw_csv(
         )
 
     try:
-        return pd.read_csv(
+        dataframe = pd.read_csv(
             file_path,
             **read_csv_kwargs,
         )
@@ -33,6 +37,15 @@ def load_raw_csv(
         raise RuntimeError(
             f"Could not read raw dataset file {file_path}: {exc}"
         ) from exc
+
+    logger.info(
+        "Loaded raw file %s (%d rows, %d columns)",
+        filename,
+        len(dataframe),
+        len(dataframe.columns),
+    )
+
+    return dataframe
 
 
 def save_processed_csv(
@@ -64,9 +77,10 @@ def save_processed_csv(
             f"Could not save processed dataset {output_path}: {exc}"
         ) from exc
 
-    print(
-        f"Saved {filename}: "
-        f"{len(dataframe):,} rows"
+    logger.info(
+        "Saved processed file %s (%d rows)",
+        filename,
+        len(dataframe),
     )
 
     return output_path
