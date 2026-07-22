@@ -7,6 +7,7 @@ from etl.transform import (
     transform_orders,
     transform_payments,
     transform_products,
+    transform_suppliers,
 )
 from etl.validate import (
     validate_all_processed,
@@ -40,6 +41,10 @@ def run_transformation_pipeline() -> None:
             "olist_products_dataset.csv"
         )
 
+        raw_suppliers = load_raw_csv(
+            "olist_sellers_dataset.csv"
+        )
+
         raw_orders = load_raw_csv(
             "olist_orders_dataset.csv"
         )
@@ -54,10 +59,12 @@ def run_transformation_pipeline() -> None:
 
         logger.info(
             "Loaded raw datasets: customers=%d, categories=%d, "
-            "products=%d, orders=%d, order_items=%d, payments=%d",
+            "products=%d, suppliers=%d, orders=%d, "
+            "order_items=%d, payments=%d",
             len(raw_customers),
             len(raw_categories),
             len(raw_products),
+            len(raw_suppliers),
             len(raw_orders),
             len(raw_order_items),
             len(raw_payments),
@@ -67,6 +74,7 @@ def run_transformation_pipeline() -> None:
             customers=raw_customers,
             categories=raw_categories,
             products=raw_products,
+            suppliers=raw_suppliers,
             orders=raw_orders,
             order_items=raw_order_items,
             payments=raw_payments,
@@ -88,6 +96,11 @@ def run_transformation_pipeline() -> None:
             categories,
         )
 
+        logger.info("Transforming suppliers")
+        suppliers = transform_suppliers(
+            raw_suppliers
+        )
+
         logger.info("Transforming orders")
         orders = transform_orders(
             raw_orders,
@@ -99,6 +112,7 @@ def run_transformation_pipeline() -> None:
             raw_order_items,
             orders,
             products,
+            suppliers,
         )
 
         logger.info("Transforming payments")
@@ -109,10 +123,12 @@ def run_transformation_pipeline() -> None:
 
         logger.info(
             "Transformation row counts: customers=%d, categories=%d, "
-            "products=%d, orders=%d, order_items=%d, payments=%d",
+            "products=%d, suppliers=%d, orders=%d, "
+            "order_items=%d, payments=%d",
             len(customers),
             len(categories),
             len(products),
+            len(suppliers),
             len(orders),
             len(order_items),
             len(payments),
@@ -122,6 +138,7 @@ def run_transformation_pipeline() -> None:
             customers=customers,
             categories=categories,
             products=products,
+            suppliers=suppliers,
             orders=orders,
             order_items=order_items,
             payments=payments,
@@ -131,6 +148,7 @@ def run_transformation_pipeline() -> None:
             customers=customers,
             categories=categories,
             products=products,
+            suppliers=suppliers,
             orders=orders,
             order_items=order_items,
             payments=payments,
@@ -151,6 +169,11 @@ def run_transformation_pipeline() -> None:
         save_processed_csv(
             products,
             "products.csv",
+        )
+
+        save_processed_csv(
+            suppliers,
+            "suppliers.csv",
         )
 
         save_processed_csv(

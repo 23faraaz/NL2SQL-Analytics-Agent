@@ -14,10 +14,6 @@ def validate_foreign_key(
     parent_column: str,
     relationship_name: str,
 ) -> None:
-    """
-    Verify that every non-null child key exists in the parent table.
-    """
-
     child_values = set(
         child_dataframe[child_column]
         .dropna()
@@ -55,14 +51,11 @@ def validate_all_relationships(
     customers: pd.DataFrame,
     categories: pd.DataFrame,
     products: pd.DataFrame,
+    suppliers: pd.DataFrame,
     orders: pd.DataFrame,
     order_items: pd.DataFrame,
     payments: pd.DataFrame,
 ) -> None:
-    """
-    Validate all foreign-key relationships between processed datasets.
-    """
-
     logger.info("Starting relationship validation")
 
     validate_foreign_key(
@@ -95,6 +88,14 @@ def validate_all_relationships(
         parent_dataframe=products,
         parent_column="product_id",
         relationship_name="order_items.product_id -> products.product_id",
+    )
+
+    validate_foreign_key(
+        child_dataframe=order_items,
+        child_column="supplier_id",
+        parent_dataframe=suppliers,
+        parent_column="supplier_id",
+        relationship_name="order_items.supplier_id -> suppliers.supplier_id",
     )
 
     validate_foreign_key(

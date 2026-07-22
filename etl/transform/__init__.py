@@ -4,6 +4,7 @@ from etl.transform.order_items import transform_order_items
 from etl.transform.orders import transform_orders
 from etl.transform.payments import transform_payments
 from etl.transform.products import transform_products
+from etl.transform.suppliers import transform_suppliers
 
 
 __all__ = [
@@ -13,4 +14,5 @@ __all__ = [
     "transform_orders",
     "transform_payments",
     "transform_products",
+    "transform_suppliers",
 ]

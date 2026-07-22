@@ -52,6 +52,12 @@ RAW_REQUIRED_COLUMNS = {
         "payment_installments",
         "payment_value",
     },
+    "suppliers": {
+        "seller_id",
+        "seller_zip_code_prefix",
+        "seller_city",
+        "seller_state",
+    },
 }
 
 
@@ -59,10 +65,6 @@ def validate_required_columns(
     dataset_name: str,
     dataframe: pd.DataFrame,
 ) -> None:
-    """
-    Verify that a raw dataset contains all required columns.
-    """
-
     required_columns = RAW_REQUIRED_COLUMNS[dataset_name]
     missing_columns = required_columns - set(dataframe.columns)
 
@@ -77,10 +79,6 @@ def validate_not_empty(
     dataset_name: str,
     dataframe: pd.DataFrame,
 ) -> None:
-    """
-    Verify that a raw dataset contains at least one row.
-    """
-
     if dataframe.empty:
         raise ValueError(
             f"Raw {dataset_name} dataset contains no rows"
@@ -91,10 +89,6 @@ def validate_raw_dataset(
     dataset_name: str,
     dataframe: pd.DataFrame,
 ) -> None:
-    """
-    Run validation checks against one raw dataset.
-    """
-
     validate_not_empty(
         dataset_name,
         dataframe,
@@ -121,11 +115,8 @@ def validate_all_raw(
     orders: pd.DataFrame,
     order_items: pd.DataFrame,
     payments: pd.DataFrame,
+    suppliers: pd.DataFrame,
 ) -> None:
-    """
-    Validate all raw datasets required by the current pipeline.
-    """
-
     logger.info("Starting raw dataset validation")
 
     datasets = {
@@ -135,6 +126,7 @@ def validate_all_raw(
         "orders": orders,
         "order_items": order_items,
         "payments": payments,
+        "suppliers": suppliers,
     }
 
     for dataset_name, dataframe in datasets.items():
