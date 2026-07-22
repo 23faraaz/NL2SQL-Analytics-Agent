@@ -1,0 +1,98 @@
+import pandas as pd
+
+
+PRODUCT_OUTPUT_COLUMNS = [
+    "product_id",
+    "source_product_id",
+    "category_id",
+    "weight_g",
+    "length_cm",
+    "height_cm",
+    "width_cm",
+]
+
+
+def transform_products(
+    products: pd.DataFrame,
+    categories: pd.DataFrame,
+) -> pd.DataFrame:
+    """Transform products and map them to processed category IDs."""
+
+    required_product_columns = {
+        "product_id",
+        "product_category_name",
+        "product_weight_g",
+        "product_length_cm",
+        "product_height_cm",
+        "product_width_cm",
+    }
+
+    missing_product_columns = (
+        required_product_columns - set(products.columns)
+    )
+
+    if missing_product_columns:
+        raise ValueError(
+            "Products dataset is missing required columns: "
+            f"{sorted(missing_product_columns)}"
+        )
+
+    required_category_columns = {
+        "category_id",
+        "source_category_name",
+    }
+
+    missing_category_columns = (
+        required_category_columns - set(categories.columns)
+    )
+
+    if missing_category_columns:
+        raise ValueError(
+            "Processed categories are missing required columns: "
+            f"{sorted(missing_category_columns)}"
+        )
+
+    transformed = products.rename(
+        columns={
+            "product_id": "source_product_id",
+            "product_weight_g": "weight_g",
+            "product_length_cm": "length_cm",
+            "product_height_cm": "height_cm",
+            "product_width_cm": "width_cm",
+        }
+    ).copy()
+
+    category_lookup = categories[
+        [
+            "category_id",
+            "source_category_name",
+        ]
+    ].copy()
+
+    transformed = transformed.merge(
+        category_lookup,
+        how="left",
+        left_on="product_category_name",
+        right_on="source_category_name",
+        validate="many_to_one",
+    )
+
+    # Zero temporarily represents an unknown or unmapped category.
+    transformed["category_id"] = (
+        transformed["category_id"]
+        .fillna(0)
+        .astype(int)
+    )
+
+    transformed.insert(
+        0,
+        "product_id",
+        range(1, len(transformed) + 1),
+    )
+
+    if transformed["source_product_id"].duplicated().any():
+        raise ValueError(
+            "Duplicate source product IDs were found"
+        )
+
+    return transformed[PRODUCT_OUTPUT_COLUMNS]
