@@ -32,7 +32,9 @@ data/generated/*
 .terraform/
 *.tfstate
 *.tfstate.*
-.terraform.lock.hcl
+*.tfplan
+crash.log
+crash.*.log
 
 # -----------------------------
 # Testing
