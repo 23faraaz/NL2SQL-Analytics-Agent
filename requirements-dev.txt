@@ -1,0 +1,9 @@
+-r requirements.txt
+
+kaggle
+faker
+numpy
+jupytext
+black
+ruff
+pytest

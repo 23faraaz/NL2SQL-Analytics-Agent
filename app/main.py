@@ -104,11 +104,19 @@ def execute_pipeline(
     schema: str,
 ) -> dict[str, Any] | None:
     """
-    Runs the existing pipeline without rendering internal progress stages
-    as the main user experience.
+    Run the NL2SQL pipeline with one automatic SQL correction attempt.
+
+    Every generated query, including regenerated SQL, must pass the same
+    safety validator before it can be executed.
     """
+
+    max_sql_attempts = 2
+
     try:
-        understanding = llm.understand_question(question, schema)
+        understanding = llm.understand_question(
+            question,
+            schema,
+        )
     except llm.LLMError as exc:
         st.error(f"I could not interpret that question: {exc}")
         logger.error("Question understanding failed: %s", exc)
@@ -122,28 +130,143 @@ def execute_pipeline(
         )
     except llm.LLMError as exc:
         st.error(f"I could not generate a safe query: {exc}")
-        logger.error("SQL generation failed: %s", exc)
+        logger.error("Initial SQL generation failed: %s", exc)
         return None
 
-    try:
-        safe_sql = sql_validator.validate_select_only(raw_sql)
-    except sql_validator.SQLValidationError as exc:
-        st.error(
-            "The generated query failed the safety checks and was not run."
+    sql_attempts: list[dict[str, Any]] = []
+    safe_sql: str | None = None
+    query_result = None
+
+    for attempt_number in range(1, max_sql_attempts + 1):
+        try:
+            safe_sql = sql_validator.validate_select_only(raw_sql)
+
+        except sql_validator.SQLValidationError as exc:
+            logger.warning(
+                "SQL validation failed on attempt %d/%d: %s",
+                attempt_number,
+                max_sql_attempts,
+                exc,
+            )
+
+            sql_attempts.append(
+                {
+                    "attempt": attempt_number,
+                    "sql": raw_sql,
+                    "failure_type": "validation_error",
+                    "error": str(exc),
+                }
+            )
+
+            if attempt_number >= max_sql_attempts:
+                st.error(
+                    "The generated query failed the safety checks "
+                    "after one correction attempt and was not run."
+                )
+
+                with st.expander("Rejected SQL attempts"):
+                    for attempt in sql_attempts:
+                        st.markdown(
+                            f"#### Attempt {attempt['attempt']}"
+                        )
+                        st.code(
+                            attempt["sql"],
+                            language="sql",
+                        )
+                        st.caption(attempt["error"])
+
+                return None
+
+            try:
+                raw_sql = llm.regenerate_sql(
+                    question=question,
+                    schema=schema,
+                    understanding=understanding,
+                    previous_sql=raw_sql,
+                    failure_type="validation_error",
+                    error_message=str(exc),
+                )
+            except llm.LLMError as regeneration_error:
+                st.error(
+                    "The query failed the safety checks and "
+                    "could not be corrected."
+                )
+                logger.error(
+                    "SQL regeneration after validation failure failed: %s",
+                    regeneration_error,
+                )
+                return None
+
+            continue
+
+        try:
+            query_result = execute_analytics_query(safe_sql)
+
+        except db.DatabaseError as exc:
+            logger.warning(
+                "SQL execution failed on attempt %d/%d: %s",
+                attempt_number,
+                max_sql_attempts,
+                exc,
+            )
+
+            sql_attempts.append(
+                {
+                    "attempt": attempt_number,
+                    "sql": safe_sql,
+                    "failure_type": "database_error",
+                    "error": str(exc),
+                }
+            )
+
+            if attempt_number >= max_sql_attempts:
+                st.error(
+                    "The database query could not be completed "
+                    "after one correction attempt."
+                )
+
+                with st.expander("Failed SQL attempts"):
+                    for attempt in sql_attempts:
+                        st.markdown(
+                            f"#### Attempt {attempt['attempt']}"
+                        )
+                        st.code(
+                            attempt["sql"],
+                            language="sql",
+                        )
+                        st.caption(attempt["error"])
+
+                return None
+
+            try:
+                raw_sql = llm.regenerate_sql(
+                    question=question,
+                    schema=schema,
+                    understanding=understanding,
+                    previous_sql=safe_sql,
+                    failure_type="database_error",
+                    error_message=str(exc),
+                )
+            except llm.LLMError as regeneration_error:
+                st.error(
+                    "The database query failed and Gemini "
+                    "could not generate a correction."
+                )
+                logger.error(
+                    "SQL regeneration after database failure failed: %s",
+                    regeneration_error,
+                )
+                return None
+
+            continue
+
+        break
+
+    if safe_sql is None or query_result is None:
+        logger.error(
+            "Pipeline finished without a validated SQL query or result."
         )
-
-        with st.expander("Rejected SQL"):
-            st.code(raw_sql, language="sql")
-            st.caption(str(exc))
-
-        logger.warning("SQL rejected: %s", exc)
-        return None
-
-    try:
-        query_result = execute_analytics_query(safe_sql)
-    except db.DatabaseError as exc:
-        st.error(f"The database query could not be completed: {exc}")
-        logger.error("Query execution failed: %s", exc)
+        st.error("The analysis could not be completed.")
         return None
 
     try:
@@ -151,12 +274,21 @@ def execute_pipeline(
             question,
             safe_sql,
             list(query_result.dataframe.columns),
-            list(query_result.dataframe.itertuples(index=False, name=None)),
+            list(
+                query_result.dataframe.itertuples(
+                    index=False,
+                    name=None,
+                )
+            ),
         )
     except llm.LLMError as exc:
-        explanation = (
-            f"The query returned {query_result.row_count:,} rows."
-        )
+        if query_result.row_count == 0:
+            explanation = "No matching records were found."
+        else:
+            explanation = (
+                f"The query returned {query_result.row_count:,} rows."
+            )
+
         logger.warning("Result explanation failed: %s", exc)
 
     try:
@@ -177,6 +309,9 @@ def execute_pipeline(
         "query_result": query_result,
         "explanation": explanation,
         "followups": followups,
+        "sql_attempts": sql_attempts,
+        "attempt_count": len(sql_attempts) + 1,
+        "regenerated": bool(sql_attempts),
     }
 
 
@@ -185,6 +320,11 @@ def render_business_answer(result: dict[str, Any]) -> None:
     dataframe = query_result.dataframe
 
     st.markdown("### Answer")
+
+    if result.get("regenerated"):
+        st.info(
+            "The initial query failed and was corrected automatically."
+        )
 
     if dataframe.empty:
         st.info(
@@ -252,6 +392,20 @@ def render_business_answer(result: dict[str, Any]) -> None:
 
         st.markdown("#### Generated SQL")
         st.code(result["safe_sql"], language="sql")
+
+        if result.get("sql_attempts"):
+            st.markdown("#### Correction history")
+
+            for attempt in result["sql_attempts"]:
+                st.markdown(
+                    f"**Attempt {attempt['attempt']} failed: "
+                    f"{attempt['failure_type']}**"
+                )
+                st.code(
+                    attempt["sql"],
+                    language="sql",
+                )
+                st.caption(attempt["error"])
 
         st.markdown("#### Question understanding")
         st.json(result["understanding"])

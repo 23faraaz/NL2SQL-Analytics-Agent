@@ -1,38 +1,66 @@
+# -----------------------------
 # Python
+# -----------------------------
 __pycache__/
 *.py[cod]
-*.pyo
-
-# Environment variables
-.env
-.env.*
+*$py.class
 
 # Virtual environments
 .venv/
 venv/
 env/
 
+# Environment variables
+.env
+.env.*
+
+# -----------------------------
+# ETL Data
+# -----------------------------
+data/raw/*
+data/processed/*
+data/generated/*
+
+# Keep directory structure
+!data/raw/.gitkeep
+!data/processed/.gitkeep
+!data/generated/.gitkeep
+
+# -----------------------------
 # Terraform
+# -----------------------------
 .terraform/
 *.tfstate
 *.tfstate.*
 .terraform.lock.hcl
 
-# IDE
-.vscode/
-.idea/
-
-# OS files
-.DS_Store
-Thumbs.db
-
-# Test/cache
+# -----------------------------
+# Testing
+# -----------------------------
 .pytest_cache/
 .mypy_cache/
 .ruff_cache/
+.coverage
+htmlcov/
 
+# -----------------------------
+# IDE
+# -----------------------------
+.vscode/
+.idea/
+
+# -----------------------------
+# Operating System
+# -----------------------------
+.DS_Store
+Thumbs.db
+
+# -----------------------------
 # Logs
+# -----------------------------
 *.log
 
+# -----------------------------
 # Docker
+# -----------------------------
 docker-compose.override.yml

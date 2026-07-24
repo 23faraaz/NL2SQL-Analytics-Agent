@@ -1,160 +1,411 @@
-"""
-Database layer: connection handling, schema introspection, and query execution.
-
-WHY SCHEMA IS INTROSPECTED, NOT HARDCODED:
-The SQL-generation prompt needs an accurate picture of the schema (table
-names, column names, types, foreign keys). Hardcoding that as a string
-constant means it silently goes stale the moment someone alters the
-schema. Reading it live from information_schema means the prompt is
-always correct without anyone remembering to update two places at once.
-"""
+from __future__ import annotations
 
 import logging
 import os
-from contextlib import contextmanager
+from pathlib import Path
+from typing import Any
 
 import psycopg2
 import psycopg2.extras
+from dotenv import load_dotenv
+from psycopg2.extensions import connection as PostgreSQLConnection
+
+PROJECT_ROOT = Path(__file__).resolve().parent.parent
+ENV_FILE = PROJECT_ROOT / ".env"
+
+load_dotenv(dotenv_path=ENV_FILE)
 
 logger = logging.getLogger(__name__)
 
 
 class DatabaseError(Exception):
-    """Wraps psycopg2 errors so callers don't need to import psycopg2
-    themselves just to catch exceptions."""
-    pass
+    """Raised when a database connection or query operation fails."""
 
 
-def _get_connection_params() -> dict:
+def _get_connection_params() -> dict[str, Any]:
     """
-    Reads connection params from environment variables. No defaults on the
-    password - if it's missing, fail loudly rather than silently trying an
-    empty password.
+    Build PostgreSQL connection parameters from environment variables.
+
+    Supported variable names:
+
+        DB_HOST
+        DB_PORT
+        DB_NAME
+        DB_USER
+        DB_PASSWORD
+
+    POSTGRES_* variables are supported as fallbacks.
     """
-    required = ["DB_HOST", "DB_PORT", "DB_NAME", "DB_USER", "DB_PASSWORD"]
-    missing = [var for var in required if not os.environ.get(var)]
-    if missing:
-        raise DatabaseError(
-            f"Missing required environment variables: {', '.join(missing)}"
-        )
 
     return {
-        "host": os.environ["DB_HOST"],
-        "port": os.environ["DB_PORT"],
-        "dbname": os.environ["DB_NAME"],
-        "user": os.environ["DB_USER"],
-        "password": os.environ["DB_PASSWORD"],
-        "connect_timeout": 5,
+        "host": os.getenv(
+            "DB_HOST",
+            os.getenv("POSTGRES_HOST", "localhost"),
+        ),
+        "port": int(
+            os.getenv(
+                "DB_PORT",
+                os.getenv("POSTGRES_PORT", "5432"),
+            )
+        ),
+        "dbname": os.getenv(
+            "DB_NAME",
+            os.getenv("POSTGRES_DB", "nl2sql_ecommerce"),
+        ),
+        "user": os.getenv(
+            "DB_USER",
+            os.getenv("POSTGRES_USER", "nl2sql_app"),
+        ),
+        "password": os.getenv(
+            "DB_PASSWORD",
+            os.getenv("POSTGRES_PASSWORD", ""),
+        ),
+        "connect_timeout": 10,
     }
 
 
-@contextmanager
-def get_connection():
+def get_connection() -> PostgreSQLConnection:
     """
-    Context manager for a single database connection. Ensures the
-    connection is always closed, even if the query raises.
+    Create and return a PostgreSQL database connection.
+
+    DATABASE_URL is used when available. Otherwise, individual
+    DB_* or POSTGRES_* environment variables are used.
     """
-    conn = None
+
+    database_url = os.getenv("DATABASE_URL")
+
     try:
-        params = _get_connection_params()
-        conn = psycopg2.connect(**params)
-        yield conn
-    except psycopg2.OperationalError as e:
-        logger.error("Database connection failed: %s", e)
-        raise DatabaseError(f"Could not connect to the database: {e}") from e
-    finally:
-        if conn is not None:
-            conn.close()
+        if database_url:
+            logger.info(
+                "Connecting to PostgreSQL using DATABASE_URL"
+            )
+
+            return psycopg2.connect(
+                database_url,
+                connect_timeout=10,
+            )
+
+        connection_params = _get_connection_params()
+
+        logger.info(
+            "Connecting to PostgreSQL database %s at %s:%s",
+            connection_params["dbname"],
+            connection_params["host"],
+            connection_params["port"],
+        )
+
+        return psycopg2.connect(
+            **connection_params
+        )
+
+    except psycopg2.Error as error:
+        logger.error(
+            "Database connection failed: %s",
+            error,
+        )
+
+        raise DatabaseError(
+            f"Could not connect to PostgreSQL: {error}"
+        ) from error
 
 
 def get_schema_description() -> str:
     """
-    Introspects the database schema and returns a plain-text description
-    suitable for injecting into the SQL-generation prompt: table names,
-    columns with types, and foreign key relationships.
+    Introspect the warehouse schema and return a plain-text description
+    suitable for the SQL-generation prompt.
     """
-    query = """
+
+    columns_query = """
         SELECT
-            t.table_name,
+            c.table_schema,
+            c.table_name,
             c.column_name,
             c.data_type,
             c.is_nullable
-        FROM information_schema.tables t
-        JOIN information_schema.columns c
-            ON t.table_name = c.table_name
-        WHERE t.table_schema = 'public'
-            AND t.table_type = 'BASE TABLE'
-        ORDER BY t.table_name, c.ordinal_position;
+        FROM information_schema.columns AS c
+        JOIN information_schema.tables AS t
+            ON c.table_schema = t.table_schema
+           AND c.table_name = t.table_name
+        WHERE c.table_schema = 'warehouse'
+          AND t.table_type = 'BASE TABLE'
+        ORDER BY
+            c.table_name,
+            c.ordinal_position;
     """
 
-    fk_query = """
+    foreign_keys_query = """
         SELECT
+            tc.table_schema AS source_schema,
             tc.table_name AS source_table,
             kcu.column_name AS source_column,
+            ccu.table_schema AS target_schema,
             ccu.table_name AS target_table,
             ccu.column_name AS target_column
-        FROM information_schema.table_constraints tc
-        JOIN information_schema.key_column_usage kcu
+        FROM information_schema.table_constraints AS tc
+        JOIN information_schema.key_column_usage AS kcu
             ON tc.constraint_name = kcu.constraint_name
-        JOIN information_schema.constraint_column_usage ccu
+           AND tc.constraint_schema = kcu.constraint_schema
+        JOIN information_schema.constraint_column_usage AS ccu
             ON tc.constraint_name = ccu.constraint_name
-        WHERE tc.constraint_type = 'FOREIGN KEY';
+           AND tc.constraint_schema = ccu.constraint_schema
+        WHERE tc.constraint_type = 'FOREIGN KEY'
+          AND tc.table_schema = 'warehouse'
+        ORDER BY
+            tc.table_name,
+            kcu.column_name;
     """
 
-    with get_connection() as conn:
-        with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
-            cur.execute(query)
-            columns = cur.fetchall()
+    try:
+        with get_connection() as connection:
+            with connection.cursor(
+                cursor_factory=psycopg2.extras.RealDictCursor
+            ) as cursor:
+                cursor.execute(columns_query)
+                columns = cursor.fetchall()
 
-            cur.execute(fk_query)
-            foreign_keys = cur.fetchall()
+                cursor.execute(foreign_keys_query)
+                foreign_keys = cursor.fetchall()
 
-    # Group columns by table
-    tables: dict[str, list[str]] = {}
-    for row in columns:
-        nullable = "NULL" if row["is_nullable"] == "YES" else "NOT NULL"
-        tables.setdefault(row["table_name"], []).append(
-            f"  - {row['column_name']} ({row['data_type']}, {nullable})"
+    except DatabaseError:
+        raise
+
+    except psycopg2.Error as error:
+        logger.error(
+            "Warehouse schema introspection failed: %s",
+            error,
         )
 
-    lines = []
-    for table_name, cols in tables.items():
-        lines.append(f"TABLE {table_name}:")
-        lines.extend(cols)
+        raise DatabaseError(
+            "Could not introspect the warehouse schema: "
+            f"{error}"
+        ) from error
+
+    if not columns:
+        raise DatabaseError(
+            "No base tables were found in the warehouse schema"
+        )
+
+    tables: dict[str, list[str]] = {}
+
+    for row in columns:
+        table_name = str(row["table_name"])
+        column_name = str(row["column_name"])
+        data_type = str(row["data_type"])
+
+        nullable = (
+            "NULL"
+            if row["is_nullable"] == "YES"
+            else "NOT NULL"
+        )
+
+        tables.setdefault(
+            table_name,
+            [],
+        ).append(
+            f"  - {column_name} "
+            f"({data_type}, {nullable})"
+        )
+
+    lines = [
+        "DATABASE: PostgreSQL",
+        "SCHEMA: warehouse",
+        "",
+        "SQL GENERATION RULES:",
+        "  - Generate exactly one read-only SELECT query.",
+        "  - Common table expressions must end in a SELECT query.",
+        "  - Use only the tables and columns listed below.",
+        "  - Fully qualify every table as warehouse.<table_name>.",
+        "  - Use PostgreSQL syntax.",
+        "  - Use the listed foreign keys when joining tables.",
+        "  - Do not invent tables, columns, or relationships.",
+        "  - Do not use INSERT, UPDATE, DELETE, DROP, ALTER, "
+        "TRUNCATE, CREATE, GRANT, REVOKE, COPY, or CALL.",
+        "",
+    ]
+
+    for table_name, table_columns in tables.items():
+        lines.append(
+            f"TABLE warehouse.{table_name}:"
+        )
+
+        lines.extend(
+            table_columns
+        )
+
         lines.append("")
 
     if foreign_keys:
-        lines.append("FOREIGN KEYS:")
-        for fk in foreign_keys:
+        lines.append(
+            "FOREIGN KEYS:"
+        )
+
+        for foreign_key in foreign_keys:
             lines.append(
-                f"  - {fk['source_table']}.{fk['source_column']} -> "
-                f"{fk['target_table']}.{fk['target_column']}"
+                f"  - {foreign_key['source_schema']}."
+                f"{foreign_key['source_table']}."
+                f"{foreign_key['source_column']} -> "
+                f"{foreign_key['target_schema']}."
+                f"{foreign_key['target_table']}."
+                f"{foreign_key['target_column']}"
             )
 
-    schema_text = "\n".join(lines)
-    logger.info("Schema introspected: %d tables", len(tables))
+    schema_text = "\n".join(
+        lines
+    ).strip()
+
+    logger.info(
+        "Warehouse schema introspected successfully: %d tables",
+        len(tables),
+    )
+
     return schema_text
 
 
-def execute_query(sql: str) -> tuple[list[str], list[tuple]]:
+def execute_query(
+    sql: str,
+) -> tuple[list[str], list[tuple[Any, ...]]]:
     """
-    Executes a validated SELECT query. Returns (column_names, rows).
-    Caller is responsible for having already run this through
-    sql_validator.validate_select_only() - this function does not
-    re-validate, it trusts its input.
+    Execute a validated read-only SQL query.
 
-    A statement timeout is set so a pathological query (accidental cross
-    join, huge aggregation) can't hang the app indefinitely.
+    The SQL should already have been checked by sql_validator.
+
+    Returns:
+        A tuple containing:
+        - a list of column names
+        - a list of result rows
     """
-    with get_connection() as conn:
-        with conn.cursor() as cur:
-            try:
-                cur.execute("SET statement_timeout = '10s';")
-                cur.execute(sql)
-                columns = [desc[0] for desc in cur.description] if cur.description else []
-                rows = cur.fetchall()
-                logger.info("Query executed successfully, %d rows returned", len(rows))
-                return columns, rows
-            except psycopg2.Error as e:
-                logger.error("Query execution failed: %s", e)
-                raise DatabaseError(f"Query execution failed: {e}") from e
+
+    if not isinstance(sql, str):
+        raise DatabaseError(
+            "SQL query must be a string"
+        )
+
+    cleaned_sql = sql.strip()
+
+    if not cleaned_sql:
+        raise DatabaseError(
+            "SQL query cannot be empty"
+        )
+
+    connection: PostgreSQLConnection | None = None
+
+    try:
+        connection = get_connection()
+
+        # Enforce read-only behaviour at the PostgreSQL transaction level.
+        connection.set_session(
+            readonly=True,
+            autocommit=False,
+        )
+
+        with connection.cursor() as cursor:
+            # Limit query execution time.
+            cursor.execute(
+                "SET LOCAL statement_timeout = '10s';"
+            )
+
+            # Use the warehouse schema by default.
+            cursor.execute(
+                "SET LOCAL search_path TO warehouse, public;"
+            )
+
+            cursor.execute(
+                cleaned_sql
+            )
+
+            if cursor.description is None:
+                raise DatabaseError(
+                    "The SQL query did not return a result set"
+                )
+
+            columns = [
+                description.name
+                for description in cursor.description
+            ]
+
+            rows = cursor.fetchall()
+
+            connection.commit()
+
+            logger.info(
+                "Query executed successfully: %d rows returned",
+                len(rows),
+            )
+
+            return columns, rows
+
+    except DatabaseError:
+        if connection is not None:
+            connection.rollback()
+
+        raise
+
+    except psycopg2.Error as error:
+        if connection is not None:
+            connection.rollback()
+
+        logger.error(
+            "Query execution failed: %s",
+            error,
+        )
+
+        raise DatabaseError(
+            f"Query execution failed: {error}"
+        ) from error
+
+    finally:
+        if connection is not None:
+            connection.close()
+
+            logger.debug(
+                "PostgreSQL connection closed"
+            )
+
+def get_database_metadata() -> dict:
+    """
+    Return high-level metadata about the warehouse.
+
+    This is used by the LLM to interpret relative date phrases such as
+    "last month" against the dataset's latest available business date.
+    """
+
+    sql = """
+    SELECT
+        MIN(ordered_at) AS earliest_order,
+        MAX(ordered_at) AS latest_order,
+        COUNT(*) AS total_orders
+    FROM warehouse.orders;
+    """
+
+    columns, rows = execute_query(sql)
+
+    if not rows:
+        return {
+            "status": "unavailable",
+            "earliest_order": None,
+            "latest_order": None,
+            "total_orders": 0,
+        }
+
+    earliest_order, latest_order, total_orders = rows[0]
+
+    return {
+        "status": "available",
+        "earliest_order": (
+            earliest_order.isoformat()
+            if earliest_order is not None
+            else None
+        ),
+        "latest_order": (
+            latest_order.isoformat()
+            if latest_order is not None
+            else None
+        ),
+        "total_orders": int(total_orders),
+        "dataset_type": "historical",
+        "relative_date_anchor": (
+            latest_order.isoformat()
+            if latest_order is not None
+            else None
+        ),
+    }

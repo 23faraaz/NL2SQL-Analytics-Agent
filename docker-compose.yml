@@ -5,10 +5,11 @@ services:
       POSTGRES_DB: ${DB_NAME}
       POSTGRES_USER: ${DB_USER}
       POSTGRES_PASSWORD: ${DB_PASSWORD}
+    ports:
+      - "5432:5432"
     volumes:
       # Postgres's entrypoint auto-runs any .sql file found here on first
-      # container start - this is what seeds the database without any
-      # manual step.
+      # container start.
       - ./sql/seed.sql:/docker-entrypoint-initdb.d/seed.sql:ro
       - db_data:/var/lib/postgresql/data
     healthcheck:
@@ -38,9 +39,6 @@ services:
     networks:
       - nl2sql-net
 
-# Explicit bridge network rather than the Compose default - makes the
-# network boundary a deliberate, visible decision rather than an implicit
-# one, and is a small interview talking point in itself.
 networks:
   nl2sql-net:
     driver: bridge

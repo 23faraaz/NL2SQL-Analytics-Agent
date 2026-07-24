@@ -1,9 +1,8 @@
 streamlit
-psycopg2-binary
 anthropic
+google-genai
+psycopg2-binary
 pandas
 python-dotenv
 sqlparse
-google-genai
-pandas
 altair
