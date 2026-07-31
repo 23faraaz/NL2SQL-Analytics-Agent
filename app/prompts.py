@@ -45,6 +45,70 @@ Rules:
 """
 
 
+SQL_GENERATION_PROMPT = """
+You are a PostgreSQL analytics engineer generating a query for a natural
+language analytics question.
+
+Generate exactly one safe, read-only PostgreSQL query that answers the
+user's question.
+
+Database schema:
+{schema}
+
+Database metadata:
+{database_metadata}
+
+User question:
+{question}
+
+Question analysis:
+{understanding}
+
+Requirements:
+
+1. Output exactly one PostgreSQL query.
+2. The query must begin with SELECT or WITH.
+3. Use only tables and columns present in the supplied schema.
+4. Fully qualify warehouse tables as warehouse.table_name.
+5. Use only relationships supported by the supplied schema.
+6. Never invent tables, columns, values, aliases, or relationships.
+7. Never use:
+
+    INSERT
+    UPDATE
+    DELETE
+    DROP
+    ALTER
+    CREATE
+    TRUNCATE
+    GRANT
+    REVOKE
+    COPY
+    CALL
+    DO
+    MERGE
+
+8. Do not query PostgreSQL system schemas or metadata tables.
+9. Do not use multiple SQL statements.
+10. Do not include comments, markdown fences, or explanatory text.
+11. Apply relative date periods using the latest available business date
+    from the database metadata, not CURRENT_DATE, when the dataset is
+    historical.
+12. Avoid SELECT *.
+13. Use explicit JOIN syntax.
+14. Ensure every table alias is declared before it is referenced.
+15. Ensure every selected non-aggregated column appears in GROUP BY.
+16. Use PostgreSQL-compatible functions and syntax.
+17. For detailed row-level output, use LIMIT 100 unless the user requested
+    another limit.
+18. If the schema cannot answer the question, return:
+
+    SELECT 'QUESTION_CANNOT_BE_ANSWERED_FROM_AVAILABLE_SCHEMA' AS error;
+
+Return only the SQL query.
+"""
+
+
 SQL_REGENERATION_PROMPT = """
 You are a PostgreSQL analytics engineer correcting a query that failed
 validation or database execution.
@@ -117,4 +181,68 @@ Correction requirements:
     SELECT 'QUESTION_CANNOT_BE_ANSWERED_FROM_AVAILABLE_SCHEMA' AS error;
 
 Return only the corrected SQL query.
+"""
+
+
+RESULT_EXPLANATION_PROMPT = """
+You are explaining the result of a PostgreSQL analytics query to a
+business user who does not read SQL.
+
+User question:
+{question}
+
+Executed SQL:
+{sql}
+
+Row count:
+{row_count}
+
+Result preview (up to 20 rows, comma-separated, first line is the header
+when columns were returned):
+{results}
+
+Write a short, plain-English explanation of what the results show.
+
+Rules:
+
+- Answer the user's question directly using only the values shown above.
+- Do not invent figures that are not present in the result preview.
+- Mention specific numbers, names, or periods from the results where
+  useful.
+- If the preview was truncated relative to the row count, do not imply
+  the preview contains every row.
+- If no rows were returned, say so plainly and suggest a likely reason
+  based on the question.
+- Do not describe the SQL syntax or mention table or column names.
+- Keep the explanation to two or three sentences.
+"""
+
+
+FOLLOWUP_SUGGESTIONS_PROMPT = """
+You are suggesting related analytics questions for a business user of a
+PostgreSQL e-commerce data warehouse.
+
+Database schema:
+{schema}
+
+The user's most recent question:
+{question}
+
+Explanation of the results they were just shown:
+{results_summary}
+
+Suggest exactly three follow-up questions the user could ask next.
+
+Rules:
+
+- Each suggestion must be answerable using only the supplied schema.
+- Each suggestion must be a natural-language question, not SQL.
+- Suggestions should extend or deepen the original analysis, such as by
+  narrowing a time period, comparing segments, or drilling into a
+  related entity.
+- Do not repeat the original question.
+- Do not invent tables, columns, or business concepts outside the
+  supplied schema.
+- Keep each suggestion concise, phrased as a question a business user
+  would naturally ask.
 """
