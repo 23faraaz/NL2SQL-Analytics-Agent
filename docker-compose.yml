@@ -8,9 +8,6 @@ services:
     ports:
       - "5432:5432"
     volumes:
-      # Postgres's entrypoint auto-runs any .sql file found here on first
-      # container start.
-      - ./sql/seed.sql:/docker-entrypoint-initdb.d/seed.sql:ro
       - db_data:/var/lib/postgresql/data
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${DB_USER} -d ${DB_NAME}"]
@@ -19,6 +16,32 @@ services:
       retries: 5
     networks:
       - nl2sql-net
+
+  # Single explicit initialisation path: creates the commerce schema,
+  # runs the real Olist ETL (S4a), runs synthetic augmentation (S4b),
+  # then loads everything into commerce. Runs once per clean volume and
+  # exits; app waits for it to finish successfully before starting.
+  # Requires the real Olist dataset to be present in ./data/raw -- see
+  # data/raw/README.md.
+  db-init:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.etl
+    environment:
+      DB_HOST: db
+      DB_PORT: 5432
+      DB_NAME: ${DB_NAME}
+      DB_USER: ${DB_USER}
+      DB_PASSWORD: ${DB_PASSWORD}
+      ETL_AUGMENTATION_SEED: ${ETL_AUGMENTATION_SEED:-42}
+    volumes:
+      - ./data:/app/data
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - nl2sql-net
+    restart: "no"
 
   app:
     build:
@@ -34,8 +57,8 @@ services:
       DB_PASSWORD: ${DB_PASSWORD}
       GEMINI_API_KEY: ${GEMINI_API_KEY}
     depends_on:
-      db:
-        condition: service_healthy
+      db-init:
+        condition: service_completed_successfully
     networks:
       - nl2sql-net
 

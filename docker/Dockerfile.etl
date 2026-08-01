@@ -1,0 +1,33 @@
+# =============================================================================
+# ETL / commerce-schema initialisation image.
+#
+# This is the single explicit initialisation path for a clean database:
+# create the commerce schema, run the real Olist ETL (S4a), run the
+# synthetic augmentation step (S4b), then load everything into commerce
+# (scripts/load_commerce.py). It is intentionally a separate image from
+# docker/Dockerfile (the Streamlit app) -- the app never needs pandas,
+# faker, or the ETL/loader code at runtime, and this image never needs
+# streamlit or the Gemini client.
+# =============================================================================
+FROM python:3.12.13-slim AS init
+
+WORKDIR /app
+
+COPY requirements-etl.txt .
+
+RUN pip install --no-cache-dir -r requirements-etl.txt
+
+COPY etl/ ./etl/
+COPY scripts/ ./scripts/
+COPY sql/ ./sql/
+
+ENV PYTHONPATH="/app" \
+    PYTHONUNBUFFERED=1
+
+# data/ is a runtime bind mount (see docker-compose.yml), not baked into
+# the image: the real Olist dataset is large, and the repository does
+# not ship a copy of it (see data/raw/README.md). Real datasets must be
+# placed on the host before `docker compose up`.
+RUN mkdir -p /app/data/raw /app/data/processed
+
+CMD ["sh", "-c", "python -m scripts.run_etl && python -m scripts.run_augmentation && python -m scripts.load_commerce"]

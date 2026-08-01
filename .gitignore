@@ -23,6 +23,7 @@ data/generated/*
 
 # Keep directory structure
 !data/raw/.gitkeep
+!data/raw/README.md
 !data/processed/.gitkeep
 !data/generated/.gitkeep
 
