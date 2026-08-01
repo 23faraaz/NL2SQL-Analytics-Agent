@@ -111,7 +111,7 @@ def get_connection() -> PostgreSQLConnection:
 
 def get_schema_description() -> str:
     """
-    Introspect the warehouse schema and return a plain-text description
+    Introspect the commerce schema and return a plain-text description
     suitable for the SQL-generation prompt.
     """
 
@@ -126,7 +126,7 @@ def get_schema_description() -> str:
         JOIN information_schema.tables AS t
             ON c.table_schema = t.table_schema
            AND c.table_name = t.table_name
-        WHERE c.table_schema = 'warehouse'
+        WHERE c.table_schema = 'commerce'
           AND t.table_type = 'BASE TABLE'
         ORDER BY
             c.table_name,
@@ -149,7 +149,7 @@ def get_schema_description() -> str:
             ON tc.constraint_name = ccu.constraint_name
            AND tc.constraint_schema = ccu.constraint_schema
         WHERE tc.constraint_type = 'FOREIGN KEY'
-          AND tc.table_schema = 'warehouse'
+          AND tc.table_schema = 'commerce'
         ORDER BY
             tc.table_name,
             kcu.column_name;
@@ -171,18 +171,18 @@ def get_schema_description() -> str:
 
     except psycopg2.Error as error:
         logger.error(
-            "Warehouse schema introspection failed: %s",
+            "Commerce schema introspection failed: %s",
             error,
         )
 
         raise DatabaseError(
-            "Could not introspect the warehouse schema: "
+            "Could not introspect the commerce schema: "
             f"{error}"
         ) from error
 
     if not columns:
         raise DatabaseError(
-            "No base tables were found in the warehouse schema"
+            "No base tables were found in the commerce schema"
         )
 
     tables: dict[str, list[str]] = {}
@@ -208,13 +208,13 @@ def get_schema_description() -> str:
 
     lines = [
         "DATABASE: PostgreSQL",
-        "SCHEMA: warehouse",
+        "SCHEMA: commerce",
         "",
         "SQL GENERATION RULES:",
         "  - Generate exactly one read-only SELECT query.",
         "  - Common table expressions must end in a SELECT query.",
         "  - Use only the tables and columns listed below.",
-        "  - Fully qualify every table as warehouse.<table_name>.",
+        "  - Fully qualify every table as commerce.<table_name>.",
         "  - Use PostgreSQL syntax.",
         "  - Use the listed foreign keys when joining tables.",
         "  - Do not invent tables, columns, or relationships.",
@@ -225,7 +225,7 @@ def get_schema_description() -> str:
 
     for table_name, table_columns in tables.items():
         lines.append(
-            f"TABLE warehouse.{table_name}:"
+            f"TABLE commerce.{table_name}:"
         )
 
         lines.extend(
@@ -254,7 +254,7 @@ def get_schema_description() -> str:
     ).strip()
 
     logger.info(
-        "Warehouse schema introspected successfully: %d tables",
+        "Commerce schema introspected successfully: %d tables",
         len(tables),
     )
 
@@ -312,9 +312,9 @@ def execute_query(
                 "SET LOCAL statement_timeout = '10s';"
             )
 
-            # Use the warehouse schema by default.
+            # Use the commerce schema by default.
             cursor.execute(
-                "SET LOCAL search_path TO warehouse, public;"
+                "SET LOCAL search_path TO commerce, public;"
             )
 
             cursor.execute(
@@ -372,7 +372,7 @@ def execute_query(
 
 def get_database_metadata() -> dict:
     """
-    Return high-level metadata about the warehouse.
+    Return high-level metadata about the commerce schema.
 
     This is used by the LLM to interpret relative date phrases such as
     "last month" against the dataset's latest available business date.
@@ -380,10 +380,10 @@ def get_database_metadata() -> dict:
 
     sql = """
     SELECT
-        MIN(ordered_at) AS earliest_order,
-        MAX(ordered_at) AS latest_order,
+        MIN(order_date) AS earliest_order,
+        MAX(order_date) AS latest_order,
         COUNT(*) AS total_orders
-    FROM warehouse.orders;
+    FROM commerce.orders;
     """
 
     columns, rows = execute_query(sql)

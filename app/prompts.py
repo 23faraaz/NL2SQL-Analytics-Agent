@@ -69,7 +69,7 @@ Requirements:
 1. Output exactly one PostgreSQL query.
 2. The query must begin with SELECT or WITH.
 3. Use only tables and columns present in the supplied schema.
-4. Fully qualify warehouse tables as warehouse.table_name.
+4. Fully qualify commerce tables as commerce.table_name.
 5. Use only relationships supported by the supplied schema.
 6. Never invent tables, columns, values, aliases, or relationships.
 7. Never use:
@@ -145,7 +145,7 @@ Correction requirements:
 4. Output exactly one PostgreSQL query.
 5. The query must begin with SELECT or WITH.
 6. Use only tables and columns present in the supplied schema.
-7. Fully qualify warehouse tables as warehouse.table_name.
+7. Fully qualify commerce tables as commerce.table_name.
 8. Use only relationships supported by the supplied schema.
 9. Never invent tables, columns, values, aliases, or relationships.
 10. Never use:

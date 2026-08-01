@@ -20,20 +20,20 @@ BEGIN;
 -- RESET EXISTING VIEWS
 -- ============================================================
 
-DROP VIEW IF EXISTS inventory_velocity CASCADE;
-DROP VIEW IF EXISTS refund_metrics CASCADE;
-DROP VIEW IF EXISTS product_performance CASCADE;
-DROP VIEW IF EXISTS monthly_sales_metrics CASCADE;
-DROP VIEW IF EXISTS customer_lifetime_metrics CASCADE;
-DROP VIEW IF EXISTS order_financials CASCADE;
-DROP VIEW IF EXISTS current_inventory CASCADE;
+DROP VIEW IF EXISTS commerce.inventory_velocity CASCADE;
+DROP VIEW IF EXISTS commerce.refund_metrics CASCADE;
+DROP VIEW IF EXISTS commerce.product_performance CASCADE;
+DROP VIEW IF EXISTS commerce.monthly_sales_metrics CASCADE;
+DROP VIEW IF EXISTS commerce.customer_lifetime_metrics CASCADE;
+DROP VIEW IF EXISTS commerce.order_financials CASCADE;
+DROP VIEW IF EXISTS commerce.current_inventory CASCADE;
 
 
 -- ============================================================
 -- 1. CURRENT INVENTORY
 -- ============================================================
 
-CREATE VIEW current_inventory AS
+CREATE VIEW commerce.current_inventory AS
 SELECT
     pv.variant_id,
     pv.sku,
@@ -66,12 +66,12 @@ SELECT
 
     MAX(im.movement_date) AS last_inventory_movement_at
 
-FROM product_variants pv
-JOIN products p
+FROM commerce.product_variants pv
+JOIN commerce.products p
     ON p.product_id = pv.product_id
-JOIN categories c
+JOIN commerce.categories c
     ON c.category_id = p.category_id
-LEFT JOIN inventory_movements im
+LEFT JOIN commerce.inventory_movements im
     ON im.variant_id = pv.variant_id
 
 GROUP BY
@@ -90,7 +90,7 @@ GROUP BY
     p.active;
 
 
-COMMENT ON VIEW current_inventory IS
+COMMENT ON VIEW commerce.current_inventory IS
     'Current stock and inventory valuation calculated from immutable inventory movements.';
 
 
@@ -98,7 +98,7 @@ COMMENT ON VIEW current_inventory IS
 -- 2. ORDER FINANCIALS
 -- ============================================================
 
-CREATE VIEW order_financials AS
+CREATE VIEW commerce.order_financials AS
 WITH item_totals AS (
     SELECT
         oi.order_id,
@@ -110,7 +110,7 @@ WITH item_totals AS (
         SUM(oi.line_cost) AS total_cost,
         SUM(oi.line_profit) AS gross_profit_before_refunds
 
-    FROM order_items oi
+    FROM commerce.order_items oi
     GROUP BY oi.order_id
 ),
 
@@ -130,7 +130,7 @@ refund_totals AS (
             WHERE r.refund_status = 'PROCESSED'
         ) AS processed_refund_count
 
-    FROM refunds r
+    FROM commerce.refunds r
     GROUP BY r.order_id
 ),
 
@@ -154,7 +154,7 @@ payment_totals AS (
             WHERE p.payment_status = 'FAILED'
         ) AS failed_payment_attempts
 
-    FROM payments p
+    FROM commerce.payments p
     GROUP BY p.order_id
 )
 
@@ -220,7 +220,7 @@ SELECT
         ELSE 0
     END AS estimated_profit_margin_percentage
 
-FROM orders o
+FROM commerce.orders o
 LEFT JOIN item_totals it
     ON it.order_id = o.order_id
 LEFT JOIN refund_totals rt
@@ -229,7 +229,7 @@ LEFT JOIN payment_totals pt
     ON pt.order_id = o.order_id;
 
 
-COMMENT ON VIEW order_financials IS
+COMMENT ON VIEW commerce.order_financials IS
     'Order-level revenue, cost, payment, refund and estimated profit metrics.';
 
 
@@ -237,7 +237,7 @@ COMMENT ON VIEW order_financials IS
 -- 3. CUSTOMER LIFETIME METRICS
 -- ============================================================
 
-CREATE VIEW customer_lifetime_metrics AS
+CREATE VIEW commerce.customer_lifetime_metrics AS
 WITH customer_orders AS (
     SELECT
         o.customer_id,
@@ -305,8 +305,8 @@ WITH customer_orders AS (
             END
         ) AS estimated_lifetime_profit
 
-    FROM orders o
-    JOIN order_financials ofn
+    FROM commerce.orders o
+    JOIN commerce.order_financials ofn
         ON ofn.order_id = o.order_id
     GROUP BY o.customer_id
 ),
@@ -320,8 +320,8 @@ segment_list AS (
             ORDER BY cs.segment_name
         ) AS active_segments
 
-    FROM customer_segment_memberships csm
-    JOIN customer_segments cs
+    FROM commerce.customer_segment_memberships csm
+    JOIN commerce.customer_segments cs
         ON cs.segment_id = csm.segment_id
     WHERE csm.removed_at IS NULL
     GROUP BY csm.customer_id
@@ -407,14 +407,14 @@ SELECT
 
     sl.active_segments
 
-FROM customers c
+FROM commerce.customers c
 LEFT JOIN customer_orders co
     ON co.customer_id = c.customer_id
 LEFT JOIN segment_list sl
     ON sl.customer_id = c.customer_id;
 
 
-COMMENT ON VIEW customer_lifetime_metrics IS
+COMMENT ON VIEW commerce.customer_lifetime_metrics IS
     'Customer lifetime value, purchase activity, segmentation and retention metrics.';
 
 
@@ -422,7 +422,7 @@ COMMENT ON VIEW customer_lifetime_metrics IS
 -- 4. MONTHLY SALES METRICS
 -- ============================================================
 
-CREATE VIEW monthly_sales_metrics AS
+CREATE VIEW commerce.monthly_sales_metrics AS
 SELECT
     DATE_TRUNC(
         'month',
@@ -537,7 +537,7 @@ SELECT
         ELSE 0
     END AS estimated_profit_margin_percentage
 
-FROM order_financials ofn
+FROM commerce.order_financials ofn
 
 GROUP BY
     DATE_TRUNC(
@@ -546,7 +546,7 @@ GROUP BY
     )::DATE;
 
 
-COMMENT ON VIEW monthly_sales_metrics IS
+COMMENT ON VIEW commerce.monthly_sales_metrics IS
     'Monthly order volume, revenue, refunds, costs, profit and customer metrics.';
 
 
@@ -554,7 +554,7 @@ COMMENT ON VIEW monthly_sales_metrics IS
 -- 5. PRODUCT PERFORMANCE
 -- ============================================================
 
-CREATE VIEW product_performance AS
+CREATE VIEW commerce.product_performance AS
 WITH sales_metrics AS (
     SELECT
         pv.variant_id,
@@ -571,10 +571,10 @@ WITH sales_metrics AS (
 
         MAX(o.order_date) AS last_sold_at
 
-    FROM order_items oi
-    JOIN orders o
+    FROM commerce.order_items oi
+    JOIN commerce.orders o
         ON o.order_id = oi.order_id
-    JOIN product_variants pv
+    JOIN commerce.product_variants pv
         ON pv.variant_id = oi.variant_id
 
     WHERE o.status <> 'CANCELLED'
@@ -602,10 +602,10 @@ refund_metrics_by_variant AS (
             END
         ) AS refund_amount
 
-    FROM refund_items ri
-    JOIN refunds r
+    FROM commerce.refund_items ri
+    JOIN commerce.refunds r
         ON r.refund_id = ri.refund_id
-    JOIN order_items oi
+    JOIN commerce.order_items oi
         ON oi.order_item_id = ri.order_item_id
 
     GROUP BY oi.variant_id
@@ -681,20 +681,20 @@ SELECT
         ELSE 0
     END AS estimated_profit_margin_percentage
 
-FROM product_variants pv
-JOIN products p
+FROM commerce.product_variants pv
+JOIN commerce.products p
     ON p.product_id = pv.product_id
-JOIN categories c
+JOIN commerce.categories c
     ON c.category_id = p.category_id
 LEFT JOIN sales_metrics sm
     ON sm.variant_id = pv.variant_id
 LEFT JOIN refund_metrics_by_variant rm
     ON rm.variant_id = pv.variant_id
-LEFT JOIN current_inventory ci
+LEFT JOIN commerce.current_inventory ci
     ON ci.variant_id = pv.variant_id;
 
 
-COMMENT ON VIEW product_performance IS
+COMMENT ON VIEW commerce.product_performance IS
     'Variant-level sales, profitability, refunds and current inventory metrics.';
 
 
@@ -702,7 +702,7 @@ COMMENT ON VIEW product_performance IS
 -- 6. REFUND METRICS
 -- ============================================================
 
-CREATE VIEW refund_metrics AS
+CREATE VIEW commerce.refund_metrics AS
 SELECT
     DATE_TRUNC(
         'month',
@@ -730,8 +730,8 @@ SELECT
         WHERE ri.return_to_stock = FALSE
     ) AS refund_items_not_returned_to_stock
 
-FROM refunds r
-LEFT JOIN refund_items ri
+FROM commerce.refunds r
+LEFT JOIN commerce.refund_items ri
     ON ri.refund_id = r.refund_id
 
 GROUP BY
@@ -743,7 +743,7 @@ GROUP BY
     r.refund_status;
 
 
-COMMENT ON VIEW refund_metrics IS
+COMMENT ON VIEW commerce.refund_metrics IS
     'Monthly refund metrics grouped by refund reason and processing status.';
 
 
@@ -751,7 +751,7 @@ COMMENT ON VIEW refund_metrics IS
 -- 7. INVENTORY VELOCITY
 -- ============================================================
 
-CREATE VIEW inventory_velocity AS
+CREATE VIEW commerce.inventory_velocity AS
 WITH recent_sales AS (
     SELECT
         oi.variant_id,
@@ -778,8 +778,8 @@ WITH recent_sales AS (
             WHERE o.status <> 'CANCELLED'
         ) AS last_sold_at
 
-    FROM order_items oi
-    JOIN orders o
+    FROM commerce.order_items oi
+    JOIN commerce.orders o
         ON o.order_id = oi.order_id
 
     GROUP BY oi.variant_id
@@ -868,12 +868,12 @@ SELECT
     rs.last_sold_at,
     ci.last_inventory_movement_at
 
-FROM current_inventory ci
+FROM commerce.current_inventory ci
 LEFT JOIN recent_sales rs
     ON rs.variant_id = ci.variant_id;
 
 
-COMMENT ON VIEW inventory_velocity IS
+COMMENT ON VIEW commerce.inventory_velocity IS
     'Recent product demand, estimated stock coverage and inventory risk status.';
 
 
