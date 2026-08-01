@@ -11,6 +11,13 @@ correctly, not that the ORDER BY, WHERE, or GROUP BY clauses are right.
 These integration tests need a reachable PostgreSQL server (DB_HOST /
 DB_PORT / DB_TEST_NAME / DB_USER / DB_PASSWORD, matching app/db.py's
 convention) and are skipped cleanly, not failed, if one is not available.
+Every one of them is marked @pytest.mark.integration (registered in
+pytest.ini) specifically so a skipped run cannot be mistaken for a
+passing integration validation: a bare `pytest` run that shows
+"skipped" is not proof this module's SQL behaviour was ever exercised.
+Run `pytest -m integration` to confirm these actually ran (not
+skipped), or `pytest -m "not integration"` to run only the
+dependency-free validation-logic tests.
 """
 
 import os
@@ -227,6 +234,7 @@ def test_validate_customer_id_accepts_valid_value():
 # ---------------------------------------------------------------------
 
 
+@pytest.mark.integration
 def test_top_n_ordering(commerce_test_db):
     result = customer_service.get_top_customers_by_lifetime_value(limit=10)
 
@@ -244,6 +252,7 @@ def test_top_n_ordering(commerce_test_db):
     ]
 
 
+@pytest.mark.integration
 def test_top_n_respects_limit(commerce_test_db):
     result = customer_service.get_top_customers_by_lifetime_value(limit=2)
 
@@ -251,6 +260,7 @@ def test_top_n_respects_limit(commerce_test_db):
     assert result["customer_id"].tolist() == [1, 2]
 
 
+@pytest.mark.integration
 def test_order_history_filters_to_requested_customer_only(commerce_test_db):
     result = customer_service.get_customer_order_history(customer_id=1)
 
@@ -263,6 +273,7 @@ def test_order_history_filters_to_requested_customer_only(commerce_test_db):
     )
 
 
+@pytest.mark.integration
 def test_order_history_for_customer_with_no_orders_is_empty_not_error(
     commerce_test_db,
 ):
@@ -271,11 +282,13 @@ def test_order_history_for_customer_with_no_orders_is_empty_not_error(
     assert result.empty
 
 
+@pytest.mark.integration
 def test_order_history_unknown_customer_raises(commerce_test_db):
     with pytest.raises(customer_service.CustomerServiceError):
         customer_service.get_customer_order_history(customer_id=999999)
 
 
+@pytest.mark.integration
 def test_tier_assignment_matches_expected_thresholds(commerce_test_db):
     breakdown = customer_service.get_customer_value_tier_breakdown()
 
@@ -295,6 +308,7 @@ def test_tier_assignment_matches_expected_thresholds(commerce_test_db):
     assert breakdown["customer_value_tier"].nunique() == len(breakdown)
 
 
+@pytest.mark.integration
 def test_tier_breakdown_display_order(commerce_test_db):
     breakdown = customer_service.get_customer_value_tier_breakdown()
 
@@ -308,6 +322,7 @@ def test_tier_breakdown_display_order(commerce_test_db):
     assert present_tiers == expected_order
 
 
+@pytest.mark.integration
 def test_sql_is_parameterized_not_interpolated(commerce_test_db, monkeypatch):
     """
     The limit value must travel as a bound parameter, never formatted

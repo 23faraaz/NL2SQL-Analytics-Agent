@@ -452,11 +452,6 @@ def render_sidebar() -> None:
             st.session_state.view = "customer_analytics"
             st.rerun()
 
-        st.markdown("Revenue")
-        st.markdown("Sales performance")
-        st.markdown("Products")
-        st.markdown("History")
-
         st.markdown("---")
 
         with st.expander("Developer mode"):
@@ -620,8 +615,16 @@ def main() -> None:
     render_sidebar()
 
     if st.session_state.view == "customer_analytics":
+        # Deterministic service-layer queries only -- never touches the
+        # LLM, so it does not need llm.validate_config() below.
         render_customer_analytics()
         return
+
+    try:
+        llm.validate_config()
+    except llm.LLMError as exc:
+        st.error(f"The assistant is not configured correctly: {exc}")
+        st.stop()
 
     try:
         schema = load_schema()

@@ -18,13 +18,46 @@ import prompts
 
 logger = logging.getLogger(__name__)
 
-MODEL = os.getenv("GEMINI_MODEL", "gemini-3.5-flash")
+# No guessed default: an unverified model name is worse than refusing to
+# start. GEMINI_MODEL must be set explicitly to a model ID valid for the
+# caller's Gemini API access (see .env.example) -- validate_config()
+# below is the fail-fast check that enforces this at startup rather than
+# letting a missing/invalid model surface as a confusing failure deep
+# inside the first question a user asks.
+MODEL = os.getenv("GEMINI_MODEL")
 MAX_TOKENS = int(os.getenv("GEMINI_MAX_TOKENS", "2048"))
 MAX_ATTEMPTS = int(os.getenv("GEMINI_MAX_ATTEMPTS", "4"))
 
 
 class LLMError(Exception):
     """Single exception type exposed by the LLM layer."""
+
+
+def validate_config() -> None:
+    """
+    Fail-fast startup check for the LLM layer's required configuration.
+
+    Called once by the application at startup (app/main.py), before any
+    question is accepted, so a missing or empty GEMINI_API_KEY /
+    GEMINI_MODEL is reported clearly and immediately -- not as a
+    confusing failure the first time a user asks a question.
+    """
+
+    missing = [
+        name
+        for name, value in (
+            ("GEMINI_API_KEY", os.environ.get("GEMINI_API_KEY")),
+            ("GEMINI_MODEL", MODEL),
+        )
+        if not value
+    ]
+
+    if missing:
+        raise LLMError(
+            "Missing required environment variable(s): "
+            f"{', '.join(missing)}. Set them before starting the app "
+            "(see .env.example)."
+        )
 
 
 def _get_client() -> genai.Client:

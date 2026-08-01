@@ -19,7 +19,7 @@ a data-loss incident. Bias toward rejecting anything ambiguous.
 import logging
 import sqlparse
 from sqlparse.sql import Statement
-from sqlparse.tokens import DML, DDL, CTE
+from sqlparse.tokens import DML, DDL, CTE, Keyword
 
 logger = logging.getLogger(__name__)
 
@@ -90,6 +90,19 @@ def validate_select_only(sql: str) -> str:
             raise SQLValidationError(
                 f"Generated SQL contains a forbidden keyword: {token.value.upper()}. "
                 f"Only read-only SELECT queries are permitted."
+            )
+
+        # sqlparse's get_type() reports "SELECT ... INTO new_table FROM
+        # ..." as a plain SELECT statement, and INTO is tokenized as a
+        # generic Keyword, not DML/DDL, so it is invisible to the check
+        # above. SELECT INTO still writes data (creates and populates a
+        # new table in PostgreSQL) and must be rejected explicitly.
+        if token.ttype is Keyword and token.value.upper() == "INTO":
+            logger.warning("Rejected SQL: SELECT ... INTO detected")
+            raise SQLValidationError(
+                "Generated SQL uses SELECT ... INTO, which can create "
+                "and write to a new table. Only read-only SELECT "
+                "queries are permitted."
             )
 
     logger.info("SQL passed validation")

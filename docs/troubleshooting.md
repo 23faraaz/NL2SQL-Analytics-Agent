@@ -1,0 +1,40 @@
+# Troubleshooting
+
+**"Missing required environment variable(s): GEMINI_API_KEY, GEMINI_MODEL"**
+The app fails fast at startup rather than guessing a model name. Set both in
+`.env` (see `.env.example`). `GEMINI_MODEL` must be a model ID valid for your
+own API access — check the current Gemini API model list, this repository
+does not assume one.
+
+**`docker compose up` fails or hangs on `db-init`**
+`db-init` runs the full ETL pipeline and needs the real Olist dataset present
+in `data/raw/` on the host (see `data/raw/README.md`) — it fails immediately
+with a clear `FileNotFoundError` naming the missing file if the dataset
+isn't there, rather than silently producing empty data. Check
+`docker compose logs db-init`.
+
+**`docker compose up --build` fails to pull an image**
+Some network environments (corporate proxies, sandboxed CI) block Docker
+Hub image pulls outright — this shows as a `403 Forbidden` on the image
+layer download itself, not a build error in this project's Dockerfiles. If
+you see this, check your environment's outbound network/registry policy;
+it isn't something in this repository to fix.
+
+**"Could not connect to the database"**
+Check `DB_HOST`/`DB_PORT`/`DB_NAME`/`DB_USER`/`DB_PASSWORD` in `.env` match a
+running PostgreSQL instance, and that the `commerce` schema has actually
+been created and loaded (`python -m scripts.load_commerce`, or via
+`db-init` in Docker Compose).
+
+**Integration tests show "skipped", not "passed"**
+`pytest -m integration` needs a real, reachable PostgreSQL server (checked
+via `DB_HOST`/`DB_PORT`, defaulting to `localhost:5432`). A skip means no
+database was reachable, not that the behaviour was verified — run
+`pytest -m integration` specifically and confirm it reports passed, not
+skipped, before trusting that these behaviours were actually exercised.
+
+**Sidebar shows only "Assistant" and "Customers"**
+This is intentional. The other nav labels (Revenue, Sales performance,
+Products, History) were removed because they were static text with no
+underlying page — a false affordance, not a missing feature you need to
+work around.
