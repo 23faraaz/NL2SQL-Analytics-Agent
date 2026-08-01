@@ -6,14 +6,19 @@ from etl.logging_config import get_logger
 logger = get_logger(__name__)
 
 
+# These contracts describe the S4a (real/derived) stage of the pipeline,
+# before S4b synthetic augmentation runs. customers, products, and
+# order_items are not yet in their final commerce-loadable shape at this
+# point -- see etl/validate/augmented.py for the post-augmentation
+# contracts that match the commerce schema exactly.
 PROCESSED_REQUIRED_COLUMNS = {
     "customers": {
         "customer_id",
         "source_customer_id",
-        "source_customer_unique_id",
-        "source_postcode_prefix",
-        "source_city",
-        "source_state",
+        "city",
+        "region",
+        "postcode",
+        "country",
     },
     "categories": {
         "category_id",
@@ -31,39 +36,42 @@ PROCESSED_REQUIRED_COLUMNS = {
     },
     "suppliers": {
         "supplier_id",
-        "source_supplier_id",
-        "source_postcode_prefix",
-        "source_city",
-        "source_state",
+        "supplier_name",
+        "country",
     },
     "orders": {
         "order_id",
         "source_order_id",
         "customer_id",
+        "order_number",
+        "order_date",
         "status",
-        "ordered_at",
-        "approved_at",
-        "shipped_at",
-        "delivered_at",
-        "estimated_delivery_at",
+        "sales_channel",
+        "shipping_city",
+        "shipping_region",
+        "shipping_postcode",
+        "shipping_country",
+        "subtotal",
+        "shipping_cost",
+        "total_amount",
     },
     "order_items": {
-        "order_item_key",
+        "order_item_id",
         "order_id",
         "product_id",
-        "supplier_id",
-        "line_number",
-        "unit_price_gbp",
+        "quantity",
+        "unit_sale_price",
+        "line_revenue",
         "freight_value_gbp",
-        "shipping_deadline",
     },
     "payments": {
         "payment_id",
         "order_id",
-        "payment_sequence",
-        "payment_type",
-        "payment_installments",
-        "payment_value_gbp",
+        "payment_reference",
+        "payment_method",
+        "payment_status",
+        "amount",
+        "payment_date",
     },
 }
 
@@ -74,7 +82,7 @@ PRIMARY_KEYS = {
     "products": "product_id",
     "suppliers": "supplier_id",
     "orders": "order_id",
-    "order_items": "order_item_key",
+    "order_items": "order_item_id",
     "payments": "payment_id",
 }
 
@@ -141,32 +149,6 @@ def validate_non_negative_column(
         )
 
 
-def validate_order_dates(
-    orders: pd.DataFrame,
-) -> None:
-    invalid_approval_dates = (
-        orders["approved_at"].notna()
-        & (orders["approved_at"] < orders["ordered_at"])
-    )
-
-    if invalid_approval_dates.any():
-        logger.warning(
-            "%d orders were approved before their purchase timestamp",
-            int(invalid_approval_dates.sum()),
-        )
-
-    invalid_delivery_dates = (
-        orders["delivered_at"].notna()
-        & (orders["delivered_at"] < orders["ordered_at"])
-    )
-
-    if invalid_delivery_dates.any():
-        logger.warning(
-            "%d orders were delivered before their purchase timestamp",
-            int(invalid_delivery_dates.sum()),
-        )
-
-
 def validate_processed_dataset(
     dataset_name: str,
     dataframe: pd.DataFrame,
@@ -203,7 +185,7 @@ def validate_all_processed(
     order_items: pd.DataFrame,
     payments: pd.DataFrame,
 ) -> None:
-    logger.info("Starting processed dataset validation")
+    logger.info("Starting processed (S4a) dataset validation")
 
     datasets = {
         "customers": customers,
@@ -224,23 +206,33 @@ def validate_all_processed(
     validate_non_negative_column(
         "order_items",
         order_items,
-        "unit_price_gbp",
+        "unit_sale_price",
     )
 
     validate_non_negative_column(
         "order_items",
         order_items,
-        "freight_value_gbp",
+        "line_revenue",
+    )
+
+    validate_non_negative_column(
+        "orders",
+        orders,
+        "subtotal",
+    )
+
+    validate_non_negative_column(
+        "orders",
+        orders,
+        "total_amount",
     )
 
     validate_non_negative_column(
         "payments",
         payments,
-        "payment_value_gbp",
+        "amount",
     )
 
-    validate_order_dates(orders)
-
     logger.info(
-        "Processed dataset validation completed successfully"
+        "Processed (S4a) dataset validation completed successfully"
     )

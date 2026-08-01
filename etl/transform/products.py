@@ -16,7 +16,19 @@ def transform_products(
     products: pd.DataFrame,
     categories: pd.DataFrame,
 ) -> pd.DataFrame:
-    """Transform products and map them to processed category IDs."""
+    """
+    Transform products and map them to processed category IDs.
+
+    This is the real/derived subset of the commerce.products contract:
+    category_id and physical dimensions are REAL Olist data. Olist
+    products carry no name or brand at all (fully anonymised, category
+    and dimensions only) and nothing that correlates with a launch date --
+    commerce.products.product_name, .brand, and .launch_date are all
+    NOT NULL with no real source, so they are added by the separate S4b
+    synthetic augmentation step, not here. source_product_id is retained
+    only as an internal join key for downstream transforms (order_items)
+    and is dropped before the final processed CSV is written.
+    """
 
     required_product_columns = {
         "product_id",

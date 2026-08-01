@@ -56,7 +56,20 @@ def validate_all_relationships(
     order_items: pd.DataFrame,
     payments: pd.DataFrame,
 ) -> None:
-    logger.info("Starting relationship validation")
+    """
+    Validate the real/derived (S4a) relationships that do not depend on
+    S4b synthetic augmentation.
+
+    commerce.order_items.variant_id -> commerce.product_variants and
+    commerce.products.supplier_id (left NULL -- see transform_suppliers)
+    are not checked here: the former does not exist until S4b generates
+    product_variants, and the latter is intentionally never populated in
+    this MVP. suppliers is accepted as a parameter for interface
+    consistency with the rest of the pipeline but has no relationship to
+    validate against the other S4a outputs.
+    """
+
+    logger.info("Starting relationship validation (S4a)")
 
     validate_foreign_key(
         child_dataframe=orders,
@@ -91,14 +104,6 @@ def validate_all_relationships(
     )
 
     validate_foreign_key(
-        child_dataframe=order_items,
-        child_column="supplier_id",
-        parent_dataframe=suppliers,
-        parent_column="supplier_id",
-        relationship_name="order_items.supplier_id -> suppliers.supplier_id",
-    )
-
-    validate_foreign_key(
         child_dataframe=payments,
         child_column="order_id",
         parent_dataframe=orders,
@@ -107,5 +112,5 @@ def validate_all_relationships(
     )
 
     logger.info(
-        "Relationship validation completed successfully"
+        "Relationship validation (S4a) completed successfully"
     )

@@ -1,15 +1,16 @@
 import pandas as pd
 
-from etl.config import BRL_TO_GBP_RATE
+from etl.config import BRL_TO_GBP_RATE, PAYMENT_METHOD_MAP
 
 
 PAYMENT_OUTPUT_COLUMNS = [
     "payment_id",
     "order_id",
-    "payment_sequence",
-    "payment_type",
-    "payment_installments",
-    "payment_value_gbp",
+    "payment_reference",
+    "payment_method",
+    "payment_status",
+    "amount",
+    "payment_date",
 ]
 
 
@@ -17,13 +18,26 @@ def transform_payments(
     payments: pd.DataFrame,
     orders: pd.DataFrame,
 ) -> pd.DataFrame:
-    """Transform payments and map them to processed order IDs."""
+    """
+    Transform payments and map them to processed order IDs.
+
+    amount is REAL/DERIVED (existing BRL_TO_GBP_RATE conversion, retained).
+    payment_method is DERIVED via a real semantic crosswalk from Olist's
+    payment_type (PAYMENT_METHOD_MAP). Real Olist payments have no status,
+    reference, or date field at all:
+      - payment_status is DERIVED from the linked order's real status
+        (SUCCESSFUL unless the order is CANCELLED).
+      - payment_reference is DERIVED, built deterministically from the
+        real source order ID and payment sequence (a genuine natural key
+        in Olist), not fabricated.
+      - payment_date is DERIVED from the linked order's real order_date,
+        since Olist payments carry no date of their own.
+    """
 
     required_payment_columns = {
         "order_id",
         "payment_sequential",
         "payment_type",
-        "payment_installments",
         "payment_value",
     }
 
@@ -40,6 +54,8 @@ def transform_payments(
     required_order_columns = {
         "order_id",
         "source_order_id",
+        "order_date",
+        "status",
     }
 
     missing_order_columns = (
@@ -55,14 +71,31 @@ def transform_payments(
     transformed = payments.rename(
         columns={
             "order_id": "source_order_id",
-            "payment_sequential": "payment_sequence",
         }
     ).copy()
+
+    unmapped_methods = (
+        set(transformed["payment_type"].unique())
+        - set(PAYMENT_METHOD_MAP)
+    )
+
+    if unmapped_methods:
+        raise ValueError(
+            "Payments dataset contains payment_type values with no "
+            f"commerce.payments.payment_method mapping: "
+            f"{sorted(unmapped_methods)}"
+        )
+
+    transformed["payment_method"] = transformed["payment_type"].map(
+        PAYMENT_METHOD_MAP
+    )
 
     order_lookup = orders[
         [
             "order_id",
             "source_order_id",
+            "order_date",
+            "status",
         ]
     ].copy()
 
@@ -87,12 +120,24 @@ def transform_payments(
         transformed["order_id"].astype(int)
     )
 
-    transformed["payment_installments"] = pd.to_numeric(
-        transformed["payment_installments"],
-        errors="coerce",
-    ).fillna(0).astype(int)
+    transformed["payment_status"] = transformed["status"].apply(
+        lambda status: "SUCCESSFUL" if status != "CANCELLED" else "FAILED"
+    )
 
-    transformed["payment_value_gbp"] = (
+    transformed["payment_date"] = transformed["order_date"]
+
+    transformed["payment_reference"] = (
+        transformed["source_order_id"].astype(str)
+        + "-"
+        + transformed["payment_sequential"].astype(str)
+    )
+
+    if transformed["payment_reference"].duplicated().any():
+        raise ValueError(
+            "Derived payment references are not unique"
+        )
+
+    transformed["amount"] = (
         pd.to_numeric(
             transformed["payment_value"],
             errors="coerce",
@@ -100,19 +145,14 @@ def transform_payments(
         * BRL_TO_GBP_RATE
     ).round(2)
 
-    if transformed["payment_value_gbp"].isna().any():
+    if transformed["amount"].isna().any():
         raise ValueError(
             "Payments contain invalid payment values"
         )
 
-    if (transformed["payment_value_gbp"] < 0).any():
+    if (transformed["amount"] < 0).any():
         raise ValueError(
             "Payments contain negative payment values"
-        )
-
-    if (transformed["payment_installments"] < 0).any():
-        raise ValueError(
-            "Payments contain negative instalment counts"
         )
 
     transformed.insert(
