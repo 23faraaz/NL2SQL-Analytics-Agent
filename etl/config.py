@@ -49,3 +49,20 @@ PAYMENT_METHOD_MAP = {
     "voucher": "GIFT_CARD",
     "not_defined": "CARD",
 }
+
+# commerce.customers.acquisition_channel CHECK constraint values
+# (sql/001_schema.sql). Lives here rather than in etl.augment.config so
+# etl.validate.augmented can check against it without importing the
+# etl.augment package (which would create a circular import through
+# etl.augment.pipeline -> etl.validate.augmented).
+ACQUISITION_CHANNELS = [
+    "ORGANIC_SEARCH",
+    "PAID_SEARCH",
+    "PAID_SOCIAL",
+    "ORGANIC_SOCIAL",
+    "EMAIL",
+    "REFERRAL",
+    "INFLUENCER",
+    "DIRECT",
+    "AFFILIATE",
+]

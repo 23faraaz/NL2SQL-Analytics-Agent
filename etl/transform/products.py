@@ -6,9 +6,6 @@ PRODUCT_OUTPUT_COLUMNS = [
     "source_product_id",
     "category_id",
     "weight_g",
-    "length_cm",
-    "height_cm",
-    "width_cm",
 ]
 
 
@@ -20,23 +17,31 @@ def transform_products(
     Transform products and map them to processed category IDs.
 
     This is the real/derived subset of the commerce.products contract:
-    category_id and physical dimensions are REAL Olist data. Olist
-    products carry no name or brand at all (fully anonymised, category
-    and dimensions only) and nothing that correlates with a launch date --
+    category_id is REAL Olist data. Olist products carry no name or
+    brand at all (fully anonymised, category and physical dimensions
+    only) and nothing that correlates with a launch date --
     commerce.products.product_name, .brand, and .launch_date are all
     NOT NULL with no real source, so they are added by the separate S4b
     synthetic augmentation step, not here. source_product_id is retained
     only as an internal join key for downstream transforms (order_items)
     and is dropped before the final processed CSV is written.
+
+    Real Olist product_weight_g is retained as weight_g -- not because
+    commerce.products has a weight column (it does not), but because S4b
+    needs it to derive commerce.product_variants.weight_grams from a
+    real value rather than inventing one; weight_g is dropped before the
+    final products.csv is saved. Real product_length_cm/height_cm/
+    width_cm have no equivalent column anywhere in the canonical schema
+    (neither commerce.products nor commerce.product_variants represents
+    physical dimensions beyond weight) and are not carried through at
+    all -- a genuine, documented loss of real data the schema has no
+    place for, not an omission.
     """
 
     required_product_columns = {
         "product_id",
         "product_category_name",
         "product_weight_g",
-        "product_length_cm",
-        "product_height_cm",
-        "product_width_cm",
     }
 
     missing_product_columns = (
@@ -68,9 +73,6 @@ def transform_products(
         columns={
             "product_id": "source_product_id",
             "product_weight_g": "weight_g",
-            "product_length_cm": "length_cm",
-            "product_height_cm": "height_cm",
-            "product_width_cm": "width_cm",
         }
     ).copy()
 

@@ -1,7 +1,7 @@
 -r requirements.txt
+-r requirements-etl.txt
 
 kaggle
-faker
 numpy
 jupytext
 black

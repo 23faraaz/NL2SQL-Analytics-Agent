@@ -1,3 +1,4 @@
+from etl.validate.augmented import validate_all_augmented
 from etl.validate.processed import validate_all_processed
 from etl.validate.raw import validate_all_raw
 from etl.validate.relationships import (
@@ -6,6 +7,7 @@ from etl.validate.relationships import (
 
 
 __all__ = [
+    "validate_all_augmented",
     "validate_all_processed",
     "validate_all_raw",
     "validate_all_relationships",

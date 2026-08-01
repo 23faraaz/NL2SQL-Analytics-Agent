@@ -45,13 +45,17 @@ FINAL_PROCESSED_COLUMNS = {
         "category_id",
         "category_name",
     ],
+    # weight_g is not itself a commerce.products column -- it is kept in
+    # this S4a-stage save only so S4b can read it back to derive
+    # commerce.product_variants.weight_grams from a real value. S4b's
+    # augmentation step drops it before writing the true final
+    # products.csv. length_cm/height_cm/width_cm have no home anywhere
+    # in the canonical schema (see transform_products docstring) and are
+    # not carried through at all.
     "products": [
         "product_id",
         "category_id",
         "weight_g",
-        "length_cm",
-        "height_cm",
-        "width_cm",
     ],
     "suppliers": [
         "supplier_id",

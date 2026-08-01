@@ -30,9 +30,6 @@ PROCESSED_REQUIRED_COLUMNS = {
         "source_product_id",
         "category_id",
         "weight_g",
-        "length_cm",
-        "height_cm",
-        "width_cm",
     },
     "suppliers": {
         "supplier_id",
