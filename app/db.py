@@ -263,11 +263,19 @@ def get_schema_description() -> str:
 
 def execute_query(
     sql: str,
+    params: tuple[Any, ...] | None = None,
 ) -> tuple[list[str], list[tuple[Any, ...]]]:
     """
     Execute a validated read-only SQL query.
 
-    The SQL should already have been checked by sql_validator.
+    The SQL should already have been checked by sql_validator, unless it
+    is trusted, developer-written, parameterized SQL (e.g. the
+    Customer Analytics MVP's fixed service-layer queries), which never
+    passes through the LLM and does not need that validator.
+
+    params, when given, are bound with a parameterized cursor.execute()
+    call (standard psycopg2 %s placeholders) rather than interpolated
+    into the SQL string.
 
     Returns:
         A tuple containing:
@@ -310,7 +318,8 @@ def execute_query(
             )
 
             cursor.execute(
-                cleaned_sql
+                cleaned_sql,
+                params,
             )
 
             if cursor.description is None:
