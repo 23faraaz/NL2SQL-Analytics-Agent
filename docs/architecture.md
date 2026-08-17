@@ -22,9 +22,11 @@ commerce.* (PostgreSQL): 15 tables, 7 analytics views
       ├──────────────────────────┐
       ▼                          ▼
 app/services/customer_service.py   app/main.py chat pipeline
-  deterministic SQL against the      understand → generate (Gemini) →
+  deterministic SQL against the      understand + generate (1 LLM call) →
   existing views, no LLM             validate (sql_validator) → execute
-                                      → explain → suggest follow-ups
+                                      → explain (LLM, non-metric results
+                                      only) → suggest follow-ups
+                                      (deterministic)
 ```
 
 Every populated column is classified REAL / DERIVED / SYNTHETIC / DEFAULT in
@@ -45,8 +47,18 @@ NL2SQL pipeline, because their SQL genuinely isn't known in advance.
 
 - `app/db.py` — connection handling, schema introspection (feeds the LLM
   prompt), read-only query execution with a statement timeout.
-- `app/llm.py` — the four Gemini calls (understand, generate, explain,
-  suggest follow-ups) and startup config validation.
+- `app/llm/` — provider-independent NL2SQL orchestration, behind an
+  `LLMProvider` abstraction so the active provider is chosen by the
+  `LLM_PROVIDER` environment variable, not hardcoded:
+  - `base.py` — the `LLMProvider` interface and the shared `LLMError`.
+  - `pipeline.py` — `understand_and_generate_sql` (combined understanding
+    + SQL generation, one call), `regenerate_sql`, `explain_results`
+    (skipped for single-value metric results -- see
+    `main.is_single_value_metric_result`), and deterministic
+    `suggest_followups` (no LLM call).
+  - `factory.py` — resolves `LLM_PROVIDER` to a concrete provider.
+  - `gemini_provider.py` / `groq_provider.py` — provider-specific SDK
+    calls, config validation, timeouts, and retry/rate-limit handling.
 - `app/sql_validator.py` — the safety gate between LLM-generated SQL and the
   database (see `docs/security.md`).
 - `app/services/` — `analytics_service.py` (executes validated SQL for the

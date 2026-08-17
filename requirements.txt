@@ -1,5 +1,7 @@
 streamlit
 google-genai
+requests
+jsonschema
 psycopg2-binary
 pandas
 python-dotenv

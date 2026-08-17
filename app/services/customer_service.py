@@ -2,8 +2,8 @@
 Customer Analytics MVP.
 
 Deterministic, service-layer SQL against the canonical commerce schema's
-existing analytics views -- never routed through Gemini. Free-form
-questions continue to use the NL2SQL pipeline (app/llm.py) unchanged;
+existing analytics views -- never routed through the LLM. Free-form
+questions continue to use the NL2SQL pipeline (app/llm/) unchanged;
 this module exists specifically so the fixed dashboard questions (top
 customers, order history, value-tier breakdown) get predictable,
 auditable answers instead of LLM-generated SQL.

@@ -64,6 +64,57 @@ PRIMARY_KEYS = {
 }
 
 
+# The subset of each AUGMENTED_REQUIRED_COLUMNS set that commerce's schema
+# actually declares NOT NULL (sql/001_schema.sql) -- distinct from "must be
+# present as a column" (AUGMENTED_REQUIRED_COLUMNS / validate_required_columns
+# above). Several required-present columns are genuinely nullable in the
+# real schema (customers.phone/address_line_1/city/region/postcode,
+# product_variants.weight_grams) and pass real Olist data straight through,
+# which can legitimately contain gaps -- e.g. 2 of 32,951 real products have
+# no recorded weight. Checking those for NOT NULL was a bug: it conflated
+# "the loader needs this column in the CSV" with "the database requires a
+# value in it," and only surfaced once this ran against the real, full-scale
+# dataset (the synthetic sandbox fixture never had a null weight to catch
+# it).
+NOT_NULL_COLUMNS = {
+    "customers": {
+        "customer_id",
+        "first_name",
+        "last_name",
+        "email",
+        "country",
+        "acquisition_channel",
+    },
+    "products": {
+        "product_id",
+        "category_id",
+        "product_name",
+        "brand",
+        "launch_date",
+    },
+    "product_variants": {
+        "variant_id",
+        "product_id",
+        "sku",
+        "colour",
+        "size",
+        "unit_cost",
+        "retail_price",
+    },
+    "order_items": {
+        "order_item_id",
+        "order_id",
+        "variant_id",
+        "quantity",
+        "unit_sale_price",
+        "unit_cost_at_sale",
+        "line_revenue",
+        "line_cost",
+        "line_profit",
+    },
+}
+
+
 def validate_required_columns(
     dataset_name: str,
     dataframe: pd.DataFrame,
@@ -106,12 +157,15 @@ def validate_no_null_required_fields(
     dataframe: pd.DataFrame,
 ) -> None:
     """
-    commerce's NOT NULL columns must never be silently null after
+    commerce's actual NOT NULL columns (NOT_NULL_COLUMNS, a subset of
+    AUGMENTED_REQUIRED_COLUMNS) must never be silently null after
     augmentation -- this is the check that would have caught the exact
-    gap S4a's loader run deliberately demonstrated.
+    gap S4a's loader run deliberately demonstrated. Columns the schema
+    itself allows to be NULL are not checked here even when they are
+    required to be present as a column (see NOT_NULL_COLUMNS' docstring).
     """
 
-    required_columns = AUGMENTED_REQUIRED_COLUMNS[dataset_name]
+    required_columns = NOT_NULL_COLUMNS[dataset_name]
 
     for column in required_columns:
         null_count = int(dataframe[column].isna().sum())

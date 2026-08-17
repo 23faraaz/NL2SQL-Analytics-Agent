@@ -145,9 +145,17 @@ def generate_product_variants(
                     "retail_price": retail_price,
                     # DERIVED from the product's real Olist weight, not
                     # invented -- weight does not vary by colour/size here.
+                    # commerce's chk_product_variants_weight requires NULL
+                    # or a strictly positive value; a handful of real
+                    # Olist rows record product_weight_g=0, which is not
+                    # a real measurement of a weightless product -- it is
+                    # the same "unknown" signal as a missing value, so it
+                    # is treated identically (NULL), not passed through as
+                    # a literal 0 that would violate a legitimate
+                    # constraint on a data-entry artifact.
                     "weight_grams": (
                         int(product_weight)
-                        if pd.notna(product_weight)
+                        if pd.notna(product_weight) and product_weight > 0
                         else None
                     ),
                 }
@@ -156,6 +164,16 @@ def generate_product_variants(
             next_variant_id += 1
 
     variants = pd.DataFrame(rows, columns=VARIANT_OUTPUT_COLUMNS)
+
+    # weight_grams is a real-valued mix of ints and (for the small number
+    # of real products with no recorded weight) None. A plain pandas
+    # column can't hold that combination as int64 (no null representation)
+    # and silently upcasts the whole column to float64 instead, which
+    # writes clean integers like 225 as "225.0" in the saved CSV --
+    # invalid input for commerce.product_variants.weight_grams INTEGER.
+    # The nullable "Int64" extension dtype keeps real values as clean
+    # integers and nulls as genuinely empty (not "nan"/"<NA>" text).
+    variants["weight_grams"] = variants["weight_grams"].astype("Int64")
 
     if variants["sku"].duplicated().any():
         raise ValueError(

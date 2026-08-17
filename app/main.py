@@ -22,11 +22,11 @@ import streamlit as st
 import db
 import llm
 import sql_validator
-from components.charts import render_chart
+from components.charts import format_value, render_chart
 from components.metrics import render_result_summary
 from services import customer_service
 from services.analytics_service import execute_analytics_query
-from services.chart_service import recommend_chart
+from services.chart_service import format_label, recommend_chart
 
 
 logging.basicConfig(
@@ -36,6 +36,21 @@ logging.basicConfig(
 )
 
 logger = logging.getLogger(__name__)
+
+
+def escape_markdown_math_delimiters(text: str) -> str:
+    """
+    Streamlit's markdown renderer treats a pair of literal $ characters as
+    LaTeX math delimiters. LLM-generated explanations routinely contain
+    multiple currency figures such as "$9,582.75", so without escaping,
+    any two dollar signs get read as "start/end of a math expression" --
+    everything between them (spaces, **bold** markers included) is
+    swallowed into math typesetting, which ignores literal whitespace and
+    renders words with no spaces between them. A backslash-escaped dollar
+    sign displays as a plain $ character without triggering math mode.
+    """
+
+    return text.replace("$", r"\$")
 
 
 st.set_page_config(
@@ -103,6 +118,32 @@ def validate_question(question: str) -> tuple[bool, str | None]:
     return True, None
 
 
+def is_single_value_metric_result(
+    dataframe,
+    recommendation,
+) -> bool:
+    """
+    True only when the result is genuinely a single value: exactly one
+    row, exactly one column in the whole result, and that column is the
+    numeric column recommend_chart() identified.
+
+    recommend_chart()'s own "metric" classification only requires one row
+    and exactly one *numeric* column -- a one-row result with an extra
+    non-numeric column (for example product_name alongside a total, from
+    a "which product has the highest revenue" question) also satisfies
+    that check. Rendering only the numeric value in that case would
+    silently drop the non-numeric column from the answer, so this
+    stricter check additionally requires the result to have no other
+    columns before the deterministic (non-LLM) explanation path is used.
+    """
+
+    return (
+        recommendation.chart_type == "metric"
+        and len(dataframe) == 1
+        and len(dataframe.columns) == 1
+    )
+
+
 def execute_pipeline(
     question: str,
     schema: str,
@@ -117,24 +158,16 @@ def execute_pipeline(
     max_sql_attempts = 2
 
     try:
-        understanding = llm.understand_question(
+        understanding, raw_sql = llm.understand_and_generate_sql(
             question,
             schema,
         )
     except llm.LLMError as exc:
-        st.error(f"I could not interpret that question: {exc}")
-        logger.error("Question understanding failed: %s", exc)
-        return None
-
-    try:
-        raw_sql = llm.generate_sql(
-            question,
-            schema,
-            understanding,
+        st.error(
+            "The AI service is temporarily unavailable. "
+            "Please try again shortly."
         )
-    except llm.LLMError as exc:
-        st.error(f"I could not generate a safe query: {exc}")
-        logger.error("Initial SQL generation failed: %s", exc)
+        logger.exception("Question understanding and SQL generation failed: %s", exc)
         return None
 
     sql_attempts: list[dict[str, Any]] = []
@@ -195,7 +228,7 @@ def execute_pipeline(
                     "The query failed the safety checks and "
                     "could not be corrected."
                 )
-                logger.error(
+                logger.exception(
                     "SQL regeneration after validation failure failed: %s",
                     regeneration_error,
                 )
@@ -253,10 +286,10 @@ def execute_pipeline(
                 )
             except llm.LLMError as regeneration_error:
                 st.error(
-                    "The database query failed and Gemini "
+                    "The database query failed and the AI service "
                     "could not generate a correction."
                 )
-                logger.error(
+                logger.exception(
                     "SQL regeneration after database failure failed: %s",
                     regeneration_error,
                 )
@@ -273,37 +306,42 @@ def execute_pipeline(
         st.error("The analysis could not be completed.")
         return None
 
-    try:
-        explanation = llm.explain_results(
-            question,
-            safe_sql,
-            list(query_result.dataframe.columns),
-            list(
-                query_result.dataframe.itertuples(
-                    index=False,
-                    name=None,
-                )
-            ),
+    recommendation = recommend_chart(query_result.dataframe)
+
+    if is_single_value_metric_result(query_result.dataframe, recommendation):
+        value = query_result.dataframe[recommendation.y_column].iloc[0]
+        explanation = (
+            f"{format_label(recommendation.y_column)}: "
+            f"{format_value(recommendation.y_column, value)}"
         )
-    except llm.LLMError as exc:
-        if query_result.row_count == 0:
-            explanation = "No matching records were found."
-        else:
-            explanation = (
-                f"The query returned {query_result.row_count:,} rows."
+    else:
+        try:
+            explanation = llm.explain_results(
+                question,
+                safe_sql,
+                list(query_result.dataframe.columns),
+                list(
+                    query_result.dataframe.itertuples(
+                        index=False,
+                        name=None,
+                    )
+                ),
             )
+        except llm.LLMError as exc:
+            if query_result.row_count == 0:
+                explanation = "No matching records were found."
+            else:
+                explanation = (
+                    f"The query returned {query_result.row_count:,} rows."
+                )
 
-        logger.warning("Result explanation failed: %s", exc)
+            logger.exception("Result explanation failed: %s", exc)
 
-    try:
-        followups = llm.suggest_followups(
-            question,
-            explanation,
-            schema,
-        )
-    except llm.LLMError as exc:
-        followups = []
-        logger.warning("Follow-up generation failed: %s", exc)
+    followups = llm.suggest_followups(
+        question,
+        understanding,
+        SUGGESTED_QUESTIONS,
+    )
 
     return {
         "question": question,
@@ -599,6 +637,14 @@ def process_question(question: str, schema: str) -> None:
 
         if result is None:
             return
+
+        # Escaped once here so both this turn's render and every future
+        # replay via render_chat_history() (which re-renders
+        # st.session_state.messages, populated below with this same
+        # string) get the safe version -- not just the first display.
+        result["explanation"] = escape_markdown_math_delimiters(
+            result["explanation"]
+        )
 
         render_business_answer(result)
 
