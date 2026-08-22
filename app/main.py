@@ -15,6 +15,7 @@ a business-focused order:
 import logging
 import re
 import sys
+from datetime import datetime
 from typing import Any
 
 import streamlit as st
@@ -24,7 +25,7 @@ import llm
 import sql_validator
 from components.charts import format_value, render_chart
 from components.metrics import render_result_summary
-from services import customer_service
+from services import customer_service, product_service, revenue_service, voice_service
 from services.analytics_service import execute_analytics_query
 from services.chart_service import format_label, recommend_chart
 
@@ -61,6 +62,56 @@ st.set_page_config(
 )
 
 
+# Custom polish beyond what .streamlit/config.toml's [theme] table can
+# reach. Every selector below was confirmed against this installed
+# Streamlit version's actual compiled frontend bundle (grepped for the
+# literal data-testid strings) before being used here, not guessed --
+# an unmatched selector would just silently do nothing, but a wrong
+# guess is still wasted, unverifiable styling.
+st.markdown(
+    """
+    <style>
+    .block-container {
+        padding-top: 2rem;
+        padding-bottom: 3rem;
+    }
+
+    [data-testid="stSidebar"] h2 {
+        font-weight: 700;
+        letter-spacing: -0.01em;
+    }
+
+    [data-testid="stChatMessage"] {
+        border-radius: 1rem;
+        padding: 0.5rem 0.75rem;
+        margin-bottom: 0.5rem;
+    }
+
+    [data-testid="stChatMessage"]:has([data-testid="stChatMessageAvatarUser"]) {
+        background-color: #F5F6FA;
+    }
+
+    [data-testid^="stBaseButton"] {
+        transition: transform 0.08s ease, box-shadow 0.08s ease;
+    }
+
+    [data-testid^="stBaseButton"]:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 4px 10px rgba(79, 70, 229, 0.15);
+    }
+
+    div[data-testid="stMetric"] {
+        background-color: #FFFFFF;
+        border: 1px solid #E4E6F0;
+        border-radius: 0.75rem;
+        padding: 1rem 1.25rem;
+    }
+    </style>
+    """,
+    unsafe_allow_html=True,
+)
+
+
 SUGGESTED_QUESTIONS = [
     "How much revenue did we generate this month?",
     "Who are our top ten customers by revenue?",
@@ -80,6 +131,9 @@ def initialise_session_state() -> None:
 
     if "pending_question" not in st.session_state:
         st.session_state.pending_question = None
+
+    if "processed_audio_id" not in st.session_state:
+        st.session_state.processed_audio_id = None
 
     if "view" not in st.session_state:
         st.session_state.view = "assistant"
@@ -116,6 +170,59 @@ def validate_question(question: str) -> tuple[bool, str | None]:
         )
 
     return True, None
+
+
+# Matches the sentinel literal embedded in prompts.py's
+# UNDERSTAND_AND_GENERATE_SQL_PROMPT / SQL_REGENERATION_PROMPT. Detecting
+# it here lets execute_pipeline() skip explain_results() entirely for
+# this case -- deterministic, no extra LLM call, and a chance to say
+# something more specific than the LLM's own generic phrasing.
+_UNANSWERABLE_SENTINEL = "QUESTION_CANNOT_BE_ANSWERED_FROM_AVAILABLE_SCHEMA"
+
+
+def _is_unanswerable_result(safe_sql: str) -> bool:
+    return _UNANSWERABLE_SENTINEL in safe_sql
+
+
+def _format_month_year(iso_timestamp: str) -> str | None:
+    try:
+        return datetime.fromisoformat(iso_timestamp).strftime("%B %Y")
+    except (TypeError, ValueError):
+        return None
+
+
+def _build_unanswerable_explanation() -> str:
+    """
+    Deterministic fallback for the QUESTION_CANNOT_BE_ANSWERED sentinel.
+
+    The single most common real cause (verified against this app's real
+    dataset) is a question about a date outside the data's actual range,
+    so the message states that range explicitly when available, instead
+    of a generic "cannot be answered" with no actionable detail.
+    """
+
+    try:
+        metadata = db.get_database_metadata()
+    except db.DatabaseError:
+        metadata = {}
+
+    earliest_label = _format_month_year(metadata.get("earliest_order", ""))
+    latest_label = _format_month_year(metadata.get("latest_order", ""))
+
+    if earliest_label and latest_label:
+        return (
+            "This question cannot be answered from the available data. "
+            f"The dataset only covers **{earliest_label}** to "
+            f"**{latest_label}** -- if your question was about a period "
+            "outside that range, that's why. Otherwise, try rephrasing "
+            "using only customers, orders, products, or payments data."
+        )
+
+    return (
+        "This question cannot be answered from the available data. "
+        "Try rephrasing using only customers, orders, products, or "
+        "payments data."
+    )
 
 
 def is_single_value_metric_result(
@@ -308,7 +415,9 @@ def execute_pipeline(
 
     recommendation = recommend_chart(query_result.dataframe)
 
-    if is_single_value_metric_result(query_result.dataframe, recommendation):
+    if _is_unanswerable_result(safe_sql):
+        explanation = _build_unanswerable_explanation()
+    elif is_single_value_metric_result(query_result.dataframe, recommendation):
         value = query_result.dataframe[recommendation.y_column].iloc[0]
         explanation = (
             f"{format_label(recommendation.y_column)}: "
@@ -490,6 +599,30 @@ def render_sidebar() -> None:
             st.session_state.view = "customer_analytics"
             st.rerun()
 
+        if st.button(
+            "Revenue",
+            use_container_width=True,
+            type=(
+                "primary"
+                if st.session_state.view == "revenue_analytics"
+                else "secondary"
+            ),
+        ):
+            st.session_state.view = "revenue_analytics"
+            st.rerun()
+
+        if st.button(
+            "Products",
+            use_container_width=True,
+            type=(
+                "primary"
+                if st.session_state.view == "product_analytics"
+                else "secondary"
+            ),
+        ):
+            st.session_state.view = "product_analytics"
+            st.rerun()
+
         st.markdown("---")
 
         with st.expander("Developer mode"):
@@ -573,6 +706,139 @@ def render_customer_analytics() -> None:
                     use_container_width=True,
                     hide_index=True,
                 )
+
+
+def render_revenue_analytics() -> None:
+    """
+    Revenue Analytics: deterministic queries against
+    commerce.monthly_sales_metrics, never routed through the LLM. Same
+    pattern as render_customer_analytics().
+    """
+
+    st.title("Revenue Analytics")
+    st.caption(
+        "Deterministic answers from the commerce schema's analytics "
+        "views -- not generated by the assistant."
+    )
+
+    try:
+        monthly = revenue_service.get_monthly_sales_metrics()
+    except revenue_service.RevenueServiceError as exc:
+        st.error(str(exc))
+        return
+
+    if monthly.empty:
+        st.info("No sales data available.")
+        return
+
+    with st.container(border=True):
+        kpi_columns = st.columns(3)
+
+        with kpi_columns[0]:
+            st.metric(
+                "Net revenue (all time)",
+                format_value("net_revenue", monthly["net_revenue"].sum()),
+            )
+
+        with kpi_columns[1]:
+            st.metric(
+                "Total orders (all time)",
+                format_value(
+                    "total_orders", int(monthly["total_orders"].sum())
+                ),
+            )
+
+        with kpi_columns[2]:
+            # net_revenue comes back as Decimal (no NUMERIC->float
+            # adapter is registered in db.py); total_orders as a numpy
+            # int from pandas. Casting both to float before dividing
+            # avoids a Decimal/numpy TypeError -- format_value below
+            # only needs a plain float/int.
+            total_net_revenue = float(monthly["net_revenue"].sum())
+            total_orders_sum = int(monthly["total_orders"].sum())
+            overall_aov = (
+                round(total_net_revenue / total_orders_sum, 2)
+                if total_orders_sum
+                else 0
+            )
+            st.metric(
+                "Average order value",
+                format_value("average_order_value", overall_aov),
+            )
+
+    st.markdown("### Net revenue by month")
+
+    with st.container(border=True):
+        # net_revenue comes back as Decimal (object dtype); chart
+        # widgets need a native numeric dtype.
+        chart_data = monthly.set_index("sales_month")[["net_revenue"]].astype(
+            float
+        )
+        st.line_chart(chart_data)
+
+    st.markdown("### Monthly detail")
+
+    st.dataframe(
+        monthly,
+        use_container_width=True,
+        hide_index=True,
+    )
+
+
+def render_product_analytics() -> None:
+    """
+    Product Analytics: deterministic queries against
+    commerce.product_performance, never routed through the LLM. Same
+    pattern as render_customer_analytics().
+    """
+
+    st.title("Product Analytics")
+    st.caption(
+        "Deterministic answers from the commerce schema's analytics "
+        "views -- not generated by the assistant."
+    )
+
+    st.markdown("### Top 10 products by net revenue")
+
+    try:
+        top_products = product_service.get_top_products_by_revenue(limit=10)
+    except product_service.ProductServiceError as exc:
+        st.error(str(exc))
+        top_products = None
+
+    if top_products is not None:
+        if top_products.empty:
+            st.info("No product sales yet.")
+        else:
+            st.dataframe(
+                top_products,
+                use_container_width=True,
+                hide_index=True,
+            )
+
+    st.markdown("### Revenue by category")
+
+    try:
+        by_category = product_service.get_revenue_by_category()
+    except product_service.ProductServiceError as exc:
+        st.error(str(exc))
+        by_category = None
+
+    if by_category is not None:
+        if by_category.empty:
+            st.info("No category data available.")
+        else:
+            with st.container(border=True):
+                st.bar_chart(
+                    by_category.set_index("category_name")[["net_revenue"]]
+                    .astype(float)
+                )
+
+            st.dataframe(
+                by_category,
+                use_container_width=True,
+                hide_index=True,
+            )
 
 
 def render_welcome_screen() -> None:
@@ -666,6 +932,14 @@ def main() -> None:
         render_customer_analytics()
         return
 
+    if st.session_state.view == "revenue_analytics":
+        render_revenue_analytics()
+        return
+
+    if st.session_state.view == "product_analytics":
+        render_product_analytics()
+        return
+
     try:
         llm.validate_config()
     except llm.LLMError as exc:
@@ -686,6 +960,37 @@ def main() -> None:
     if pending_question:
         st.session_state.pending_question = None
         process_question(pending_question, schema)
+
+    audio_file = st.audio_input("Or ask by voice")
+
+    if (
+        audio_file is not None
+        and audio_file.file_id != st.session_state.processed_audio_id
+    ):
+        # Marked before the attempt, success or failure: st.audio_input
+        # keeps returning the same recording every rerun until the user
+        # records a new one, so this must be set regardless of outcome --
+        # otherwise an unrelated rerun (any other button on the page)
+        # would silently re-attempt transcribing a failed clip forever.
+        st.session_state.processed_audio_id = audio_file.file_id
+
+        with st.spinner("Transcribing..."):
+            try:
+                transcript = voice_service.transcribe_audio(
+                    audio_file.getvalue(),
+                    filename=audio_file.name,
+                )
+            except voice_service.VoiceServiceError as exc:
+                st.error(str(exc))
+                logger.exception("Voice transcription failed: %s", exc)
+            else:
+                # Routed through the same pending_question mechanism the
+                # welcome-screen and follow-up buttons already use, so it
+                # gets the same validation and renders in the chat
+                # transcript exactly like a typed question -- that chat
+                # bubble is the transcription being shown to the user.
+                st.session_state.pending_question = transcript
+                st.rerun()
 
     typed_question = st.chat_input(
         "Ask about customers, revenue or sales performance"
