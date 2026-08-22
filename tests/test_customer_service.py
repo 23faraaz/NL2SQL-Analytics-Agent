@@ -168,14 +168,24 @@ def commerce_test_db():
 
     conn.close()
 
-    os.environ["DB_HOST"] = DB_HOST
-    os.environ["DB_PORT"] = str(DB_PORT)
-    os.environ["DB_NAME"] = TEST_DB_NAME
-    os.environ["DB_USER"] = DB_USER
-    os.environ["DB_PASSWORD"] = DB_PASSWORD
-    os.environ.pop("DATABASE_URL", None)
+    # Module-scoped: pytest's function-scoped `monkeypatch` fixture can't
+    # be used here, so pytest.MonkeyPatch() is instantiated directly --
+    # its .undo() restores every env var below to its pre-fixture value
+    # (or deletes it if it was unset) once this module's tests finish.
+    # Without this, DB_NAME would stay pointed at TEST_DB_NAME even after
+    # it's dropped below, breaking any DB-touching test that runs later
+    # in the same pytest session.
+    monkeypatch = pytest.MonkeyPatch()
+    monkeypatch.setenv("DB_HOST", DB_HOST)
+    monkeypatch.setenv("DB_PORT", str(DB_PORT))
+    monkeypatch.setenv("DB_NAME", TEST_DB_NAME)
+    monkeypatch.setenv("DB_USER", DB_USER)
+    monkeypatch.setenv("DB_PASSWORD", DB_PASSWORD)
+    monkeypatch.delenv("DATABASE_URL", raising=False)
 
     yield
+
+    monkeypatch.undo()
 
     admin_conn = _admin_connection()
     admin_conn.autocommit = True

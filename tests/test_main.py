@@ -94,3 +94,71 @@ def test_directly_constructed_metric_recommendation_requires_matching_shape():
     )
 
     assert main.is_single_value_metric_result(df, recommendation) is False
+
+
+# ---------------------------------------------------------------------
+# Unanswerable-question fallback
+# ---------------------------------------------------------------------
+
+
+def test_is_unanswerable_result_detects_sentinel():
+    sql = "SELECT 'QUESTION_CANNOT_BE_ANSWERED_FROM_AVAILABLE_SCHEMA' AS error"
+
+    assert main._is_unanswerable_result(sql) is True
+
+
+def test_is_unanswerable_result_false_for_normal_sql():
+    sql = "SELECT COUNT(*) FROM commerce.orders"
+
+    assert main._is_unanswerable_result(sql) is False
+
+
+def test_format_month_year_parses_iso_timestamp():
+    assert main._format_month_year("2018-10-17T17:30:18+01:00") == "October 2018"
+
+
+def test_format_month_year_returns_none_for_invalid_input():
+    assert main._format_month_year("") is None
+    assert main._format_month_year("not-a-date") is None
+
+
+def test_build_unanswerable_explanation_includes_real_date_range(monkeypatch):
+    monkeypatch.setattr(
+        main.db,
+        "get_database_metadata",
+        lambda: {
+            "earliest_order": "2016-09-04T21:15:19+01:00",
+            "latest_order": "2018-10-17T17:30:18+01:00",
+        },
+    )
+
+    explanation = main._build_unanswerable_explanation()
+
+    assert "September 2016" in explanation
+    assert "October 2018" in explanation
+
+
+def test_build_unanswerable_explanation_falls_back_when_metadata_unavailable(
+    monkeypatch,
+):
+    monkeypatch.setattr(
+        main.db,
+        "get_database_metadata",
+        lambda: {"status": "unavailable"},
+    )
+
+    explanation = main._build_unanswerable_explanation()
+
+    assert "cannot be answered" in explanation
+    assert "September" not in explanation
+
+
+def test_build_unanswerable_explanation_handles_database_error(monkeypatch):
+    def _raise(*args, **kwargs):
+        raise main.db.DatabaseError("connection lost")
+
+    monkeypatch.setattr(main.db, "get_database_metadata", _raise)
+
+    explanation = main._build_unanswerable_explanation()
+
+    assert "cannot be answered" in explanation
