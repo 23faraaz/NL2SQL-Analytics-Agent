@@ -86,7 +86,7 @@ variable "private_subnets" {
 }
 
 variable "nat_gateway_subnet_key" {
-  description = "Key of the public subnet that hosts the staging NAT Gateway"
+  description = "Key of the public subnet that hosts the NAT Gateway"
   type        = string
 
   validation {
