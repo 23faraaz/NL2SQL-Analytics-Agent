@@ -33,9 +33,21 @@ data/generated/*
 .terraform/
 *.tfstate
 *.tfstate.*
+.terraform.tfstate.lock.info
 *.tfplan
 crash.log
 crash.*.log
+
+# Local-only Terraform overrides
+override.tf
+override.tf.json
+*_override.tf
+*_override.tf.json
+
+# Terraform CLI configuration may contain credentials
+.terraformrc
+terraform.rc
+credentials.tfrc.json
 
 # -----------------------------
 # Testing

@@ -38,3 +38,21 @@ This is intentional. The other nav labels (Revenue, Sales performance,
 Products, History) were removed because they were static text with no
 underlying page — a false affordance, not a missing feature you need to
 work around.
+
+**Terraform bootstrap fails with `s3:CreateBucket` `AccessDenied`**
+`terraform apply` reached AWS but failed with a 403 because the IAM user did
+not have `s3:CreateBucket`. Authentication was working; the user just did not
+have permission to create the state bucket. `terraform state list` was empty,
+so the failed apply had not created or recorded any partial resources.
+
+The saved plan still showed only the four intended S3 resources, which ruled
+out the Terraform configuration and S3-native locking as the cause. I created
+a customer-managed policy scoped to the state bucket and attached it through
+the `devops` IAM group. It allows Terraform to create and configure the bucket
+and use the state and lock files without giving the user broad administrator or
+full S3 access.
+
+After updating IAM, a new plan showed `4 to add, 0 to change, 0 to destroy`.
+The apply created all four resources, and the next plan reported `No changes`.
+The lesson is that valid AWS credentials prove who the user is, but IAM policy
+still decides what that user is allowed to do.

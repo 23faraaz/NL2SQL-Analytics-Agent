@@ -1,7 +1,8 @@
 # I use S3 to centrally store Terraform state
 # versioning for recovery
 # AES256 encryption and public-access blocking to protect it
-# DynamoDB locking to prevent concurrent Terraform runs from modifying the same state
+# S3-native locking to prevent concurrent Terraform runs modifying the same state
+# this bootstrap stack keeps local state because it creates the remote state bucket
 
 # S3 bucket used to store Terraform remote state
 resource "aws_s3_bucket" "state" {
@@ -44,20 +45,3 @@ resource "aws_s3_bucket_public_access_block" "state" {
   restrict_public_buckets = true
 }
 
-# DynamoDB table used for Terraform state locking
-resource "aws_dynamodb_table" "lock" {
-  name         = var.lock_table_name
-  billing_mode = "PAY_PER_REQUEST"
-  hash_key     = "LockID"
-
-  attribute {
-    name = "LockID"
-    type = "S"
-  }
-
-  tags = {
-    Project   = "nl2sql-agent"
-    ManagedBy = "terraform"
-    Purpose   = "terraform-state-locking"
-  }
-}
