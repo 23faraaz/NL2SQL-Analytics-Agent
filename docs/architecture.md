@@ -66,6 +66,28 @@ NL2SQL pipeline, because their SQL genuinely isn't known in advance.
   queries), `chart_service.py` (rule-based chart selection).
 - `etl/` and `scripts/` — see `README.md`'s project layout.
 
+## AWS staging network
+
+The deployed staging VPC spans `eu-west-2a` and `eu-west-2b`. Each Availability
+Zone has one public subnet and one private subnet. Automatic public IP
+assignment is disabled on every subnet.
+
+The public subnets route outbound traffic through an Internet Gateway. They
+will host the internet-facing Application Load Balancer in a later checkpoint.
+The private subnets share one route table that sends outbound traffic through a
+NAT Gateway in the `public_b` subnet in `eu-west-2b`. The planned ECS tasks will
+use the private subnets with public IP assignment disabled.
+
+One NAT Gateway keeps staging simpler than a NAT Gateway in each Availability
+Zone. It also reduces the fixed hourly cost. This creates a single-AZ outbound
+dependency. Traffic from `eu-west-2a` to the NAT Gateway may also incur
+cross-AZ charges. A production environment would normally use one NAT Gateway
+per Availability Zone with an AZ-local private route table.
+
+The NAT Gateway provides outbound connectivity. It does not filter outbound
+destinations. The application needs this connectivity for ECR, AWS APIs and
+the external Gemini or Groq API.
+
 ## Known architectural limitations
 
 - The `commerce` schema also defines `refunds`, `campaigns`,

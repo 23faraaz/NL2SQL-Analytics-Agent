@@ -1,50 +1,75 @@
+locals {
+  common_tags = {
+    Environment = var.environment
+    ManagedBy   = "terraform"
+    Project     = "nl2sql-agent"
+  }
+}
+
 resource "aws_vpc" "main" {
-  cidr_block = var.vpc_cidr
+  cidr_block           = var.vpc_cidr
+  enable_dns_support   = true
+  enable_dns_hostnames = true
+
+  tags = merge(local.common_tags, {
+    Name = "${var.environment}-vpc"
+  })
 }
 
 resource "aws_subnet" "public" {
-  count = length(var.public_subnet_cidrs)
+  for_each = var.public_subnets
 
-  vpc_id = aws_vpc.main.id
+  vpc_id                  = aws_vpc.main.id
+  cidr_block              = each.value.cidr_block
+  availability_zone       = each.value.availability_zone
+  map_public_ip_on_launch = false
 
-  cidr_block = var.public_subnet_cidrs[count.index]
-
-  availability_zone = var.availability_zones[count.index]
+  tags = merge(local.common_tags, {
+    Name = "${var.environment}-${each.key}"
+    Tier = "public"
+  })
 }
 
 resource "aws_subnet" "private" {
-  count = length(var.private_subnet_cidrs)
+  for_each = var.private_subnets
 
-  vpc_id = aws_vpc.main.id
+  vpc_id                  = aws_vpc.main.id
+  cidr_block              = each.value.cidr_block
+  availability_zone       = each.value.availability_zone
+  map_public_ip_on_launch = false
 
-  cidr_block = var.private_subnet_cidrs[count.index]
-
-  availability_zone = var.availability_zones[count.index]
+  tags = merge(local.common_tags, {
+    Name = "${var.environment}-${each.key}"
+    Tier = "private"
+  })
 }
 
-resource "aws_internet_gateway" "gw" {
+resource "aws_internet_gateway" "main" {
   vpc_id = aws_vpc.main.id
 
-  tags = {
+  tags = merge(local.common_tags, {
     Name = "${var.environment}-igw"
-  }
+  })
 }
 
 resource "aws_eip" "nat" {
   domain = "vpc"
 
-  tags = {
+  tags = merge(local.common_tags, {
     Name = "${var.environment}-nat-eip"
-  }
+  })
 }
 
 resource "aws_nat_gateway" "main" {
-  allocation_id = aws_eip.nat.id
-  subnet_id     = aws_subnet.public[0].id
+  allocation_id     = aws_eip.nat.id
+  connectivity_type = "public"
+  subnet_id         = aws_subnet.public[var.nat_gateway_subnet_key].id
 
-  tags = {
+  depends_on = [aws_internet_gateway.main]
+
+  tags = merge(local.common_tags, {
     Name = "${var.environment}-nat"
-  }
+  })
 }
 
 resource "aws_route_table" "public" {
@@ -52,16 +77,15 @@ resource "aws_route_table" "public" {
 
   route {
     cidr_block = "0.0.0.0/0"
-    gateway_id = aws_internet_gateway.gw.id
+    gateway_id = aws_internet_gateway.main.id
   }
 
-  tags = {
+  tags = merge(local.common_tags, {
     Name = "${var.environment}-public-rt"
-  }
+  })
 }
- 
-resource "aws_route_table" "private" {
 
+resource "aws_route_table" "private" {
   vpc_id = aws_vpc.main.id
 
   route {
@@ -69,25 +93,21 @@ resource "aws_route_table" "private" {
     nat_gateway_id = aws_nat_gateway.main.id
   }
 
-  tags = {
+  tags = merge(local.common_tags, {
     Name = "${var.environment}-private-rt"
-  }
+  })
 }
 
 resource "aws_route_table_association" "public" {
+  for_each = aws_subnet.public
 
-  count = length(var.public_subnet_cidrs)
-
-  subnet_id = aws_subnet.public[count.index].id
-
+  subnet_id      = each.value.id
   route_table_id = aws_route_table.public.id
 }
 
 resource "aws_route_table_association" "private" {
+  for_each = aws_subnet.private
 
-  count = length(var.private_subnet_cidrs)
-
-  subnet_id = aws_subnet.private[count.index].id
-
+  subnet_id      = each.value.id
   route_table_id = aws_route_table.private.id
 }
