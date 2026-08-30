@@ -88,6 +88,12 @@ The NAT Gateway provides outbound connectivity. It does not filter outbound
 destinations. The application needs this connectivity for ECR, AWS APIs and
 the external Gemini or Groq API.
 
+The staging ALB uses HTTP on port 80. Its security group accepts public HTTP
+traffic. The ECS task security group accepts application traffic on port 8501
+only from the ALB security group. HTTPS is a planned production improvement.
+It requires an ACM certificate and an HTTPS listener. The HTTP listener would
+then redirect requests to HTTPS.
+
 ## Known architectural limitations
 
 - The `commerce` schema also defines `refunds`, `campaigns`,
