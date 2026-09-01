@@ -14,4 +14,5 @@ module "alb" {
   environment       = "staging"
   vpc_id            = module.networking.vpc_id
   public_subnet_ids = module.networking.public_subnet_ids
+  certificate_arn   = var.certificate_arn
 }

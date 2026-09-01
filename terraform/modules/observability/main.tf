@@ -7,9 +7,59 @@ locals {
   }
 }
 
+data "aws_caller_identity" "current" {}
+
+data "aws_iam_policy_document" "operations_key" {
+  statement {
+    sid       = "AccountKeyAdministration"
+    effect    = "Allow"
+    actions   = ["kms:*"]
+    resources = ["*"]
+
+    principals {
+      type        = "AWS"
+      identifiers = ["arn:aws:iam::${data.aws_caller_identity.current.account_id}:root"]
+    }
+  }
+
+  statement {
+    sid    = "AllowOperationalServices"
+    effect = "Allow"
+    actions = [
+      "kms:Decrypt",
+      "kms:GenerateDataKey",
+    ]
+    resources = ["*"]
+
+    principals {
+      type        = "Service"
+      identifiers = ["cloudwatch.amazonaws.com", "events.amazonaws.com", "sns.amazonaws.com"]
+    }
+
+    condition {
+      test     = "StringEquals"
+      variable = "AWS:SourceAccount"
+      values   = [data.aws_caller_identity.current.account_id]
+    }
+  }
+}
+
+resource "aws_kms_key" "operations" {
+  description             = "Encrypts production operational notifications"
+  enable_key_rotation     = true
+  deletion_window_in_days = 30
+  policy                  = data.aws_iam_policy_document.operations_key.json
+  tags                    = local.common_tags
+}
+
+resource "aws_kms_alias" "operations" {
+  name          = "alias/${local.prefix}-operations"
+  target_key_id = aws_kms_key.operations.key_id
+}
+
 resource "aws_sns_topic" "operations" {
   name              = "${local.prefix}-operations"
-  kms_master_key_id = "alias/aws/sns"
+  kms_master_key_id = aws_kms_key.operations.arn
   tags              = local.common_tags
 }
 
@@ -53,8 +103,6 @@ data "aws_iam_policy_document" "operations" {
     }
   }
 }
-
-data "aws_caller_identity" "current" {}
 
 resource "aws_sns_topic_policy" "operations" {
   arn    = aws_sns_topic.operations.arn

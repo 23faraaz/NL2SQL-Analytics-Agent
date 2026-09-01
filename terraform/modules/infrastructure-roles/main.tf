@@ -93,6 +93,18 @@ data "aws_iam_policy_document" "state" {
     ]
     resources = ["arn:aws:s3:::${var.state_bucket_name}/production/terraform.tfstate.tflock"]
   }
+
+  statement {
+    sid    = "UseTerraformStateKey"
+    effect = "Allow"
+    actions = [
+      "kms:Decrypt",
+      "kms:DescribeKey",
+      "kms:Encrypt",
+      "kms:GenerateDataKey",
+    ]
+    resources = [var.state_kms_key_arn]
+  }
 }
 
 resource "aws_iam_role_policy" "plan_state" {
@@ -212,6 +224,19 @@ data "aws_iam_policy_document" "apply" {
       "logs:ListTagsForResource",
       "logs:PutRetentionPolicy",
       "logs:TagResource",
+      "kms:CreateAlias",
+      "kms:CreateKey",
+      "kms:DescribeKey",
+      "kms:DisableKey",
+      "kms:EnableKeyRotation",
+      "kms:GetKeyPolicy",
+      "kms:GetKeyRotationStatus",
+      "kms:ListResourceTags",
+      "kms:PutKeyPolicy",
+      "kms:ScheduleKeyDeletion",
+      "kms:TagResource",
+      "kms:UpdateAlias",
+      "kms:UpdateKeyDescription",
       "rds:AddTagsToResource",
       "rds:CreateDBInstance",
       "rds:CreateDBSubnetGroup",

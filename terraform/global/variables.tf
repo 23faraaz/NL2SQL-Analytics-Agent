@@ -33,6 +33,11 @@ variable "terraform_state_bucket_name" {
   type        = string
 }
 
+variable "terraform_state_kms_key_arn" {
+  description = "Bootstrap-created KMS key encrypting Terraform state"
+  type        = string
+}
+
 variable "infrastructure_permissions_boundary_arn" {
   description = "Optional pre-existing permission boundary for Terraform roles"
   type        = string

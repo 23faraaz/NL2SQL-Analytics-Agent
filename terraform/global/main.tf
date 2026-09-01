@@ -85,5 +85,6 @@ module "infrastructure_roles" {
   plan_subject             = var.github_oidc_subject
   apply_subject            = var.github_production_subject
   state_bucket_name        = var.terraform_state_bucket_name
+  state_kms_key_arn        = var.terraform_state_kms_key_arn
   permissions_boundary_arn = var.infrastructure_permissions_boundary_arn
 }

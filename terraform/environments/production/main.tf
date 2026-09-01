@@ -21,6 +21,9 @@ resource "aws_s3_bucket_public_access_block" "alb_logs" {
   restrict_public_buckets = true
 }
 
+# ALB access-log delivery supports SSE-S3 for this destination; using a
+# customer-managed KMS key would prevent log delivery.
+#trivy:ignore:AVD-AWS-0132
 resource "aws_s3_bucket_server_side_encryption_configuration" "alb_logs" {
   bucket = aws_s3_bucket.alb_logs.id
 

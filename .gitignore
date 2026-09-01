@@ -31,6 +31,8 @@ data/generated/*
 # Terraform
 # -----------------------------
 .terraform/
+*.tfvars
+!*.tfvars.example
 *.tfstate
 *.tfstate.*
 .terraform.tfstate.lock.info

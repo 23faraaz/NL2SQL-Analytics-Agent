@@ -65,6 +65,7 @@ jobs:
           terraform init
           -lock-timeout=5m
           -backend-config="bucket=${{ vars.TF_STATE_BUCKET }}"
+          -backend-config="kms_key_id=${{ vars.TF_STATE_KMS_KEY_ARN }}"
 
       - name: Validate production configuration
         working-directory: ${{ env.TF_WORKING_DIR }}
@@ -176,6 +177,7 @@ jobs:
           terraform init
           -lock-timeout=5m
           -backend-config="bucket=${{ vars.TF_STATE_BUCKET }}"
+          -backend-config="kms_key_id=${{ vars.TF_STATE_KMS_KEY_ARN }}"
 
       - name: Apply only the reviewed plan
         working-directory: ${{ env.TF_WORKING_DIR }}

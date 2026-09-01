@@ -1,0 +1,2 @@
+# HTTPS is mandatory in staging. Do not commit certificate private keys.
+certificate_arn = "arn:aws:acm:eu-west-2:123456789012:certificate/REPLACE_ME"

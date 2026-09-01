@@ -18,6 +18,11 @@ variable "state_bucket_name" {
   description = "S3 bucket containing Terraform state"
 }
 
+variable "state_kms_key_arn" {
+  type        = string
+  description = "Customer-managed KMS key encrypting Terraform state"
+}
+
 variable "aws_region" {
   type        = string
   description = "Production AWS region"

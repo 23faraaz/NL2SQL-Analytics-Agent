@@ -20,7 +20,8 @@ and objectives approved by the service owner.
 ## 2. Bootstrap prerequisites
 
 1. Apply `terraform/bootstrap` from a trusted administrator workstation to
-   create the versioned, encrypted, private state bucket.
+   create the versioned, customer-KMS-encrypted, private state bucket. Record
+   both `state_bucket_name` and `state_kms_key_arn` outputs.
 2. Apply `terraform/global` to create ECR, the GitHub OIDC provider, CI publish
    role, read-only plan role, and production apply role.
 3. Review the production apply policy and permission boundary. Do not grant the
@@ -54,6 +55,7 @@ AWS_TERRAFORM_PLAN_ROLE_ARN
 AWS_TERRAFORM_APPLY_ROLE_ARN
 AWS_APPLICATION_DEPLOY_ROLE_ARN
 TF_STATE_BUCKET
+TF_STATE_KMS_KEY_ARN
 TF_PRODUCTION_PUBLIC_SUBNETS
 TF_PRODUCTION_PRIVATE_SUBNETS
 TF_PRODUCTION_NAT_GATEWAY_SUBNET_KEY

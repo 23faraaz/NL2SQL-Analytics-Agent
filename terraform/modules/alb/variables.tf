@@ -68,10 +68,13 @@ variable "enable_deletion_protection" {
 }
 
 variable "certificate_arn" {
-  description = "Optional ACM certificate ARN; when set HTTP redirects to HTTPS"
+  description = "ACM certificate ARN used by the required HTTPS listener"
   type        = string
-  default     = null
-  nullable    = true
+
+  validation {
+    condition     = startswith(var.certificate_arn, "arn:aws:acm:")
+    error_message = "certificate_arn must be an ACM certificate ARN."
+  }
 }
 
 variable "ssl_policy" {
