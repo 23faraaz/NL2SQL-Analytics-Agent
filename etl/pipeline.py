@@ -16,7 +16,6 @@ from etl.validate import (
     validate_all_relationships,
 )
 
-
 logger = get_logger(__name__)
 
 
@@ -113,33 +112,19 @@ def run_transformation_pipeline() -> None:
     try:
         logger.info("Loading raw datasets")
 
-        raw_customers = load_raw_csv(
-            "olist_customers_dataset.csv"
-        )
+        raw_customers = load_raw_csv("olist_customers_dataset.csv")
 
-        raw_categories = load_raw_csv(
-            "product_category_name_translation.csv"
-        )
+        raw_categories = load_raw_csv("product_category_name_translation.csv")
 
-        raw_products = load_raw_csv(
-            "olist_products_dataset.csv"
-        )
+        raw_products = load_raw_csv("olist_products_dataset.csv")
 
-        raw_suppliers = load_raw_csv(
-            "olist_sellers_dataset.csv"
-        )
+        raw_suppliers = load_raw_csv("olist_sellers_dataset.csv")
 
-        raw_orders = load_raw_csv(
-            "olist_orders_dataset.csv"
-        )
+        raw_orders = load_raw_csv("olist_orders_dataset.csv")
 
-        raw_order_items = load_raw_csv(
-            "olist_order_items_dataset.csv"
-        )
+        raw_order_items = load_raw_csv("olist_order_items_dataset.csv")
 
-        raw_payments = load_raw_csv(
-            "olist_order_payments_dataset.csv"
-        )
+        raw_payments = load_raw_csv("olist_order_payments_dataset.csv")
 
         logger.info(
             "Loaded raw datasets: customers=%d, categories=%d, "
@@ -165,14 +150,10 @@ def run_transformation_pipeline() -> None:
         )
 
         logger.info("Transforming customers")
-        customers = transform_customers(
-            raw_customers
-        )
+        customers = transform_customers(raw_customers)
 
         logger.info("Transforming categories")
-        categories = transform_categories(
-            raw_categories
-        )
+        categories = transform_categories(raw_categories)
 
         logger.info("Transforming products")
         products = transform_products(
@@ -181,9 +162,7 @@ def run_transformation_pipeline() -> None:
         )
 
         logger.info("Transforming suppliers")
-        suppliers = transform_suppliers(
-            raw_suppliers
-        )
+        suppliers = transform_suppliers(raw_suppliers)
 
         logger.info("Transforming orders")
         orders = transform_orders(
@@ -281,11 +260,7 @@ def run_transformation_pipeline() -> None:
         )
 
     except Exception:
-        logger.exception(
-            "ETL transformation pipeline failed"
-        )
+        logger.exception("ETL transformation pipeline failed")
         raise
 
-    logger.info(
-        "ETL transformation pipeline completed successfully"
-    )
+    logger.info("ETL transformation pipeline completed successfully")

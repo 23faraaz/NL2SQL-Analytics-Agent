@@ -2,7 +2,6 @@ import pandas as pd
 
 from etl.logging_config import get_logger
 
-
 logger = get_logger(__name__)
 
 
@@ -104,9 +103,7 @@ def validate_primary_key(
 ) -> None:
     primary_key = PRIMARY_KEYS[dataset_name]
 
-    null_count = int(
-        dataframe[primary_key].isna().sum()
-    )
+    null_count = int(dataframe[primary_key].isna().sum())
 
     if null_count:
         raise ValueError(
@@ -114,9 +111,7 @@ def validate_primary_key(
             f"{null_count:,} null values"
         )
 
-    duplicate_count = int(
-        dataframe[primary_key].duplicated().sum()
-    )
+    duplicate_count = int(dataframe[primary_key].duplicated().sum())
 
     if duplicate_count:
         raise ValueError(
@@ -135,9 +130,7 @@ def validate_non_negative_column(
         errors="coerce",
     )
 
-    negative_count = int(
-        (numeric_values < 0).sum()
-    )
+    negative_count = int((numeric_values < 0).sum())
 
     if negative_count:
         raise ValueError(
@@ -151,9 +144,7 @@ def validate_processed_dataset(
     dataframe: pd.DataFrame,
 ) -> None:
     if dataframe.empty:
-        raise ValueError(
-            f"Processed {dataset_name} dataset contains no rows"
-        )
+        raise ValueError(f"Processed {dataset_name} dataset contains no rows")
 
     validate_required_columns(
         dataset_name,
@@ -230,6 +221,4 @@ def validate_all_processed(
         "amount",
     )
 
-    logger.info(
-        "Processed (S4a) dataset validation completed successfully"
-    )
+    logger.info("Processed (S4a) dataset validation completed successfully")

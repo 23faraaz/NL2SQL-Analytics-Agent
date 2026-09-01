@@ -5,7 +5,6 @@ import pandas as pd
 import db
 from models.query_result import QueryResult
 
-
 DEFAULT_DISPLAY_LIMIT = 1_000
 
 

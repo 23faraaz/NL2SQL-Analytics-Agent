@@ -3,7 +3,6 @@ from typing import Literal
 
 import pandas as pd
 
-
 ChartType = Literal["metric", "line", "bar", "scatter", "table"]
 
 
@@ -26,9 +25,7 @@ def recommend_chart(df: pd.DataFrame) -> ChartRecommendation:
 
     prepared_df = prepare_dataframe(df)
 
-    numeric_columns = list(
-        prepared_df.select_dtypes(include=["number"]).columns
-    )
+    numeric_columns = list(prepared_df.select_dtypes(include=["number"]).columns)
 
     datetime_columns = [
         column
@@ -39,8 +36,7 @@ def recommend_chart(df: pd.DataFrame) -> ChartRecommendation:
     categorical_columns = [
         column
         for column in prepared_df.columns
-        if column not in numeric_columns
-        and column not in datetime_columns
+        if column not in numeric_columns and column not in datetime_columns
     ]
 
     # One row with one numerical answer: KPI card.
@@ -134,8 +130,7 @@ def select_best_numeric_column(columns: list[str]) -> str:
     non_identifier_columns = [
         column
         for column in columns
-        if not column.lower().endswith("_id")
-        and column.lower() != "id"
+        if not column.lower().endswith("_id") and column.lower() != "id"
     ]
 
     return non_identifier_columns[0] if non_identifier_columns else columns[0]

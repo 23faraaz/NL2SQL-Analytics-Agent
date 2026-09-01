@@ -86,9 +86,7 @@ def generate_product_variants(
             )
 
         average_real_price_by_product = (
-            order_items.groupby("product_id")["unit_sale_price"]
-            .mean()
-            .to_dict()
+            order_items.groupby("product_id")["unit_sale_price"].mean().to_dict()
         )
 
     rng = random.Random(AUGMENTATION_SEED)
@@ -176,8 +174,6 @@ def generate_product_variants(
     variants["weight_grams"] = variants["weight_grams"].astype("Int64")
 
     if variants["sku"].duplicated().any():
-        raise ValueError(
-            "Generated variant SKUs are not unique"
-        )
+        raise ValueError("Generated variant SKUs are not unique")
 
     return variants

@@ -10,7 +10,6 @@ from services.chart_service import (
     prepare_dataframe,
 )
 
-
 CURRENCY_TERMS = {
     "revenue",
     "sales",
@@ -85,8 +84,7 @@ def render_line_chart(
                 title=format_label(recommendation.y_column),
             ),
             tooltip=[
-                alt.Tooltip(column, title=format_label(column))
-                for column in df.columns
+                alt.Tooltip(column, title=format_label(column)) for column in df.columns
             ],
         )
         .properties(
@@ -121,8 +119,7 @@ def render_bar_chart(
                 title=format_label(recommendation.x_column),
             ),
             tooltip=[
-                alt.Tooltip(column, title=format_label(column))
-                for column in df.columns
+                alt.Tooltip(column, title=format_label(column)) for column in df.columns
             ],
         )
         .properties(
@@ -154,8 +151,7 @@ def render_scatter_chart(
                 title=format_label(recommendation.y_column),
             ),
             tooltip=[
-                alt.Tooltip(column, title=format_label(column))
-                for column in df.columns
+                alt.Tooltip(column, title=format_label(column)) for column in df.columns
             ],
         )
         .properties(
@@ -171,10 +167,7 @@ def render_scatter_chart(
 def format_value(column: str, value) -> str:
     column_lower = column.lower()
 
-    is_currency = any(
-        term in column_lower
-        for term in CURRENCY_TERMS
-    )
+    is_currency = any(term in column_lower for term in CURRENCY_TERMS)
 
     if isinstance(value, Decimal):
         value = float(value)

@@ -43,16 +43,12 @@ MODEL = os.getenv("GROQ_MODEL")
 MAX_TOKENS = int(os.getenv("GROQ_MAX_TOKENS", "2048"))
 MAX_ATTEMPTS = int(os.getenv("GROQ_MAX_ATTEMPTS", "4"))
 
-GROQ_REQUEST_TIMEOUT_SECONDS = float(
-    os.getenv("GROQ_REQUEST_TIMEOUT_SECONDS", "30")
-)
+GROQ_REQUEST_TIMEOUT_SECONDS = float(os.getenv("GROQ_REQUEST_TIMEOUT_SECONDS", "30"))
 
 # Mirrors gemini_provider.py's separate, smaller 429 retry budget --
 # deliberately small so a rate-limited question fails fast rather than
 # holding the Streamlit UI for minutes.
-GROQ_RATE_LIMIT_MAX_ATTEMPTS = int(
-    os.getenv("GROQ_RATE_LIMIT_MAX_ATTEMPTS", "2")
-)
+GROQ_RATE_LIMIT_MAX_ATTEMPTS = int(os.getenv("GROQ_RATE_LIMIT_MAX_ATTEMPTS", "2"))
 GROQ_RATE_LIMIT_MAX_DELAY_SECONDS = float(
     os.getenv("GROQ_RATE_LIMIT_MAX_DELAY_SECONDS", "10")
 )
@@ -168,9 +164,7 @@ def _validate_structured_json(content: str, schema: dict[str, Any]) -> str:
         parsed = json.loads(content)
     except json.JSONDecodeError as error:
         logger.error("Groq structured response was not valid JSON: %s", error)
-        raise LLMError(
-            f"Groq returned malformed JSON: {content[:200]}"
-        ) from error
+        raise LLMError(f"Groq returned malformed JSON: {content[:200]}") from error
 
     try:
         jsonschema.validate(instance=parsed, schema=schema)
@@ -254,12 +248,8 @@ class GroqProvider(LLMProvider):
                 retry_after = _extract_retry_after_seconds(response)
 
                 if retry_after is not None:
-                    is_transient = (
-                        retry_after <= GROQ_RATE_LIMIT_MAX_DELAY_SECONDS
-                    )
-                    delay_seconds = min(
-                        retry_after, GROQ_RATE_LIMIT_MAX_DELAY_SECONDS
-                    )
+                    is_transient = retry_after <= GROQ_RATE_LIMIT_MAX_DELAY_SECONDS
+                    delay_seconds = min(retry_after, GROQ_RATE_LIMIT_MAX_DELAY_SECONDS)
                 else:
                     is_transient = True
                     delay_seconds = min(
@@ -339,9 +329,7 @@ class GroqProvider(LLMProvider):
                 content = payload["choices"][0]["message"]["content"]
             except (ValueError, KeyError, IndexError, TypeError) as error:
                 logger.error("Unexpected Groq response shape: %s", error)
-                raise LLMError(
-                    "Groq returned an unexpected response shape."
-                ) from error
+                raise LLMError("Groq returned an unexpected response shape.") from error
 
             if not content or not content.strip():
                 raise LLMError("Groq returned an empty response.")

@@ -2,7 +2,6 @@ import pandas as pd
 
 from etl.logging_config import get_logger
 
-
 logger = get_logger(__name__)
 
 
@@ -80,9 +79,7 @@ def validate_not_empty(
     dataframe: pd.DataFrame,
 ) -> None:
     if dataframe.empty:
-        raise ValueError(
-            f"Raw {dataset_name} dataset contains no rows"
-        )
+        raise ValueError(f"Raw {dataset_name} dataset contains no rows")
 
 
 def validate_raw_dataset(

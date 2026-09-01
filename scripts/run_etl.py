@@ -3,7 +3,6 @@ import sys
 from etl.logging_config import configure_logging, get_logger
 from etl.pipeline import run_transformation_pipeline
 
-
 configure_logging()
 logger = get_logger(__name__)
 

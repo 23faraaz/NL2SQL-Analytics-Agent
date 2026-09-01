@@ -1,0 +1,45 @@
+# Version control
+.git
+.github
+
+# Local configuration and secrets
+.env
+.env.*
+!.env.example
+.streamlit/secrets.toml
+
+# Python development files
+.venv
+venv
+env
+**/__pycache__
+*.py[cod]
+.pytest_cache
+.mypy_cache
+.ruff_cache
+.coverage
+htmlcov
+
+# Terraform local files
+terraform/**/.terraform
+*.tfstate
+*.tfstate.*
+*.tfplan
+.terraform.tfstate.lock.info
+
+# Local datasets stay outside application images
+data/raw
+data/processed
+data/generated
+
+# Development files not needed at runtime
+.claude
+.idea
+.vscode
+docs
+tests
+
+# Operating system files
+.DS_Store
+Thumbs.db
+

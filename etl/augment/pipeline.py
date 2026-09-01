@@ -9,7 +9,6 @@ from etl.io import save_processed_csv
 from etl.logging_config import get_logger
 from etl.validate.augmented import validate_all_augmented
 
-
 logger = get_logger(__name__)
 
 
@@ -95,11 +94,7 @@ def run_augmentation_pipeline() -> None:
         save_processed_csv(order_items, "order_items.csv")
 
     except Exception:
-        logger.exception(
-            "ETL synthetic augmentation pipeline failed"
-        )
+        logger.exception("ETL synthetic augmentation pipeline failed")
         raise
 
-    logger.info(
-        "ETL synthetic augmentation pipeline completed successfully"
-    )
+    logger.info("ETL synthetic augmentation pipeline completed successfully")

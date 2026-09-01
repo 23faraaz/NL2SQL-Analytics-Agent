@@ -6,7 +6,6 @@ from etl.transform.payments import transform_payments
 from etl.transform.products import transform_products
 from etl.transform.suppliers import transform_suppliers
 
-
 __all__ = [
     "finalize_order_totals",
     "transform_categories",

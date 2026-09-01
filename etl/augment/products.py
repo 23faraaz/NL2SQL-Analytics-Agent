@@ -6,7 +6,6 @@ from faker import Faker
 
 from etl.augment.config import AUGMENTATION_SEED, BRANDS
 
-
 # commerce.products has no weight/dimension columns at all -- weight_g
 # is carried through this function (needed by generate_product_variants
 # to derive commerce.product_variants.weight_grams from a real value)
@@ -55,9 +54,7 @@ def augment_products(
         "category_id",
         "weight_g",
     }
-    missing_product_columns = (
-        required_product_columns - set(products.columns)
-    )
+    missing_product_columns = required_product_columns - set(products.columns)
 
     if missing_product_columns:
         raise ValueError(
@@ -66,9 +63,7 @@ def augment_products(
         )
 
     required_category_columns = {"category_id", "category_name"}
-    missing_category_columns = (
-        required_category_columns - set(categories.columns)
-    )
+    missing_category_columns = required_category_columns - set(categories.columns)
 
     if missing_category_columns:
         raise ValueError(
@@ -94,10 +89,7 @@ def augment_products(
     for _, row in augmented.iterrows():
         category_label = row["category_name"] or "General"
 
-        descriptor = " ".join(
-            word.title()
-            for word in faker.words(nb=2)
-        )
+        descriptor = " ".join(word.title() for word in faker.words(nb=2))
 
         product_names.append(f"{category_label} {descriptor}")
         brands.append(rng.choice(BRANDS))

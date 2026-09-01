@@ -174,7 +174,9 @@ def test_transcribe_audio_unsupported_format_raises(monkeypatch):
     fake_post = _FakePost([_FakeResponse(400, text="invalid audio format")])
     monkeypatch.setattr(voice_service.requests, "post", fake_post)
 
-    with pytest.raises(voice_service.VoiceServiceError, match="could not be transcribed"):
+    with pytest.raises(
+        voice_service.VoiceServiceError, match="could not be transcribed"
+    ):
         voice_service.transcribe_audio(b"not-really-audio")
 
 
@@ -194,7 +196,9 @@ def test_transcribe_audio_server_error_raises(monkeypatch):
     fake_post = _FakePost([_FakeResponse(500, text="internal error")])
     monkeypatch.setattr(voice_service.requests, "post", fake_post)
 
-    with pytest.raises(voice_service.VoiceServiceError, match="temporarily unavailable"):
+    with pytest.raises(
+        voice_service.VoiceServiceError, match="temporarily unavailable"
+    ):
         voice_service.transcribe_audio(b"fake-wav-bytes")
 
 

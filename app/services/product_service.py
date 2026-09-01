@@ -19,7 +19,6 @@ import pandas as pd
 
 import db
 
-
 logger = logging.getLogger(__name__)
 
 MAX_TOP_N_LIMIT = 100
@@ -43,9 +42,7 @@ def _validate_limit(limit: int) -> int:
         raise ProductServiceError(f"limit must be at least 1, got {limit}")
 
     if limit > MAX_TOP_N_LIMIT:
-        raise ProductServiceError(
-            f"limit cannot exceed {MAX_TOP_N_LIMIT}, got {limit}"
-        )
+        raise ProductServiceError(f"limit cannot exceed {MAX_TOP_N_LIMIT}, got {limit}")
 
     return limit
 

@@ -1,0 +1,40 @@
+name: Build Docker image
+description: Build a traceable local Docker image for CI or CD
+
+inputs:
+  image-name:
+    description: Docker image repository name
+    required: true
+  image-tag:
+    description: Immutable source-derived image tag
+    required: true
+  platform:
+    description: Target Linux platform matching the ECS runtime architecture
+    required: false
+    default: linux/amd64
+
+outputs:
+  image-ref:
+    description: Fully tagged local image reference
+    value: ${{ steps.build.outputs.image-ref }}
+  image-id:
+    description: Content-addressed local Docker image ID
+    value: ${{ steps.build.outputs.image-id }}
+
+runs:
+  using: composite
+  steps:
+    - name: Build image
+      id: build
+      shell: bash
+      run: |
+        image_ref="${{ inputs.image-name }}:${{ inputs.image-tag }}"
+        docker build \
+          --file docker/Dockerfile \
+          --platform "${{ inputs.platform }}" \
+          --label "org.opencontainers.image.revision=${GITHUB_SHA}" \
+          --tag "${image_ref}" \
+          .
+        image_id="$(docker image inspect --format='{{.Id}}' "${image_ref}")"
+        echo "image-ref=${image_ref}" >> "${GITHUB_OUTPUT}"
+        echo "image-id=${image_id}" >> "${GITHUB_OUTPUT}"

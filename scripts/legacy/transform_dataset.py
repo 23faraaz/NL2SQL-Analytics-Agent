@@ -1,8 +1,7 @@
- from pathlib import Path
+from pathlib import Path
 import sys
 
 import pandas as pd
-
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 RAW_DATA_DIR = PROJECT_ROOT / "data" / "raw"
@@ -50,9 +49,7 @@ def transform_customers() -> pd.DataFrame:
 def transform_categories() -> pd.DataFrame:
     df = load_csv("product_category_name_translation.csv")
 
-    df = df.drop_duplicates(
-        subset=["product_category_name"]
-    ).copy()
+    df = df.drop_duplicates(subset=["product_category_name"]).copy()
 
     df = df.rename(
         columns={
@@ -93,9 +90,7 @@ def transform_products(categories: pd.DataFrame) -> pd.DataFrame:
         }
     ).copy()
 
-    category_lookup = categories[
-        ["category_id", "source_category_name"]
-    ].copy()
+    category_lookup = categories[["category_id", "source_category_name"]].copy()
 
     df = df.merge(
         category_lookup,
@@ -146,9 +141,7 @@ def transform_orders(customers: pd.DataFrame) -> pd.DataFrame:
         }
     ).copy()
 
-    customer_lookup = customers[
-        ["customer_id", "source_customer_id"]
-    ].copy()
+    customer_lookup = customers[["customer_id", "source_customer_id"]].copy()
 
     df = df.merge(
         customer_lookup,
@@ -159,9 +152,7 @@ def transform_orders(customers: pd.DataFrame) -> pd.DataFrame:
 
     if df["customer_id"].isna().any():
         missing = int(df["customer_id"].isna().sum())
-        raise ValueError(
-            f"{missing:,} orders could not be matched to customers"
-        )
+        raise ValueError(f"{missing:,} orders could not be matched to customers")
 
     df["customer_id"] = df["customer_id"].astype(int)
     df.insert(0, "order_id", range(1, len(df) + 1))
@@ -222,13 +213,9 @@ def transform_order_items(
         }
     ).copy()
 
-    order_lookup = orders[
-        ["order_id", "source_order_id"]
-    ].copy()
+    order_lookup = orders[["order_id", "source_order_id"]].copy()
 
-    product_lookup = products[
-        ["product_id", "source_product_id"]
-    ].copy()
+    product_lookup = products[["product_id", "source_product_id"]].copy()
 
     df = df.merge(
         order_lookup,
@@ -246,26 +233,18 @@ def transform_order_items(
 
     if df["order_id"].isna().any():
         missing = int(df["order_id"].isna().sum())
-        raise ValueError(
-            f"{missing:,} order items could not be matched to orders"
-        )
+        raise ValueError(f"{missing:,} order items could not be matched to orders")
 
     if df["product_id"].isna().any():
         missing = int(df["product_id"].isna().sum())
-        raise ValueError(
-            f"{missing:,} order items could not be matched to products"
-        )
+        raise ValueError(f"{missing:,} order items could not be matched to products")
 
     df["order_id"] = df["order_id"].astype(int)
     df["product_id"] = df["product_id"].astype(int)
 
-    df["unit_price_gbp"] = (
-        df["price"] * BRL_TO_GBP_RATE
-    ).round(2)
+    df["unit_price_gbp"] = (df["price"] * BRL_TO_GBP_RATE).round(2)
 
-    df["freight_value_gbp"] = (
-        df["freight_value"] * BRL_TO_GBP_RATE
-    ).round(2)
+    df["freight_value_gbp"] = (df["freight_value"] * BRL_TO_GBP_RATE).round(2)
 
     df.insert(0, "order_item_key", range(1, len(df) + 1))
 
@@ -319,4 +298,3 @@ def main() -> int:
 
 if __name__ == "__main__":
     sys.exit(main())
-PY

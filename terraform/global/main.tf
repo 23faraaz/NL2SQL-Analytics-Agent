@@ -65,3 +65,15 @@ resource "aws_ecr_lifecycle_policy" "app" {
     ]
   })
 }
+
+module "github_oidc_provider" {
+  source = "../modules/oidc-provider"
+}
+
+module "ci_publish_role" {
+  source = "../modules/deploy-role"
+
+  oidc_provider_arn   = module.github_oidc_provider.arn
+  github_oidc_subject = var.github_oidc_subject
+  ecr_repository_arn  = aws_ecr_repository.app.arn
+}

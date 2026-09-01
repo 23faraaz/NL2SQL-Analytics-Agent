@@ -10,7 +10,6 @@ from psycopg2.extensions import connection as PostgreSQLConnection
 
 from etl.logging_config import get_logger
 
-
 logger = get_logger(__name__)
 
 
@@ -22,11 +21,7 @@ SCHEMA_FILES = [
     PROJECT_ROOT / "sql" / "003_indexes.sql",
 ]
 
-PROCESSED_DATA_DIR = (
-    PROJECT_ROOT
-    / "data"
-    / "processed"
-)
+PROCESSED_DATA_DIR = PROJECT_ROOT / "data" / "processed"
 
 # FK-safe load order. product_variants and order_items are populated by
 # S4b synthetic augmentation and will not exist as processed CSVs until
@@ -60,9 +55,7 @@ def get_database_connection() -> PostgreSQLConnection:
 
     try:
         if database_url:
-            logger.info(
-                "Connecting to PostgreSQL using DATABASE_URL"
-            )
+            logger.info("Connecting to PostgreSQL using DATABASE_URL")
 
             return psycopg2.connect(database_url)
 
@@ -81,9 +74,7 @@ def get_database_connection() -> PostgreSQLConnection:
         )
 
     except psycopg2.Error:
-        logger.exception(
-            "Failed to connect to PostgreSQL"
-        )
+        logger.exception("Failed to connect to PostgreSQL")
         raise
 
 
@@ -103,9 +94,7 @@ def find_available_processed_files() -> list[str]:
     ]
 
     missing = [
-        table_name
-        for table_name in COMMERCE_TABLES
-        if table_name not in available
+        table_name for table_name in COMMERCE_TABLES if table_name not in available
     ]
 
     if missing:
@@ -116,9 +105,7 @@ def find_available_processed_files() -> list[str]:
         )
 
     if not available:
-        raise FileNotFoundError(
-            f"No processed CSV files found in {PROCESSED_DATA_DIR}"
-        )
+        raise FileNotFoundError(f"No processed CSV files found in {PROCESSED_DATA_DIR}")
 
     return available
 
@@ -133,16 +120,12 @@ def execute_schema(
 
     for schema_file in SCHEMA_FILES:
         if not schema_file.is_file():
-            raise FileNotFoundError(
-                f"Required schema file is missing: {schema_file}"
-            )
+            raise FileNotFoundError(f"Required schema file is missing: {schema_file}")
 
         schema_sql = schema_file.read_text(encoding="utf-8")
 
         if not schema_sql.strip():
-            raise ValueError(
-                f"Schema file is empty: {schema_file}"
-            )
+            raise ValueError(f"Schema file is empty: {schema_file}")
 
         logger.info(
             "Executing schema file: %s",
@@ -152,9 +135,7 @@ def execute_schema(
         with connection.cursor() as cursor:
             cursor.execute(schema_sql)
 
-    logger.info(
-        "Commerce schema created successfully"
-    )
+    logger.info("Commerce schema created successfully")
 
 
 def count_csv_rows(
@@ -209,19 +190,12 @@ def load_csv_into_table(
     with no default).
     """
 
-    csv_path = (
-        PROCESSED_DATA_DIR
-        / f"{table_name}.csv"
-    )
+    csv_path = PROCESSED_DATA_DIR / f"{table_name}.csv"
 
-    expected_rows = count_csv_rows(
-        csv_path
-    )
+    expected_rows = count_csv_rows(csv_path)
 
     if expected_rows == 0:
-        raise ValueError(
-            f"Processed CSV contains no data rows: {csv_path}"
-        )
+        raise ValueError(f"Processed CSV contains no data rows: {csv_path}")
 
     columns = read_csv_header(csv_path)
     column_list = ", ".join(columns)
@@ -271,19 +245,14 @@ def get_table_row_count(
     Return the number of rows currently stored in a commerce table.
     """
 
-    query = (
-        f"SELECT COUNT(*) "
-        f"FROM commerce.{table_name}"
-    )
+    query = f"SELECT COUNT(*) " f"FROM commerce.{table_name}"
 
     with connection.cursor() as cursor:
         cursor.execute(query)
         result = cursor.fetchone()
 
     if result is None:
-        raise RuntimeError(
-            f"Could not read row count for commerce.{table_name}"
-        )
+        raise RuntimeError(f"Could not read row count for commerce.{table_name}")
 
     return int(result[0])
 
@@ -410,11 +379,7 @@ def verify_foreign_key_integrity(
             cursor.execute(query)
             result = cursor.fetchone()
 
-            orphan_count = (
-                int(result[0])
-                if result is not None
-                else -1
-            )
+            orphan_count = int(result[0]) if result is not None else -1
 
             if orphan_count != 0:
                 raise ValueError(
@@ -428,9 +393,7 @@ def verify_foreign_key_integrity(
                 relationship,
             )
 
-    logger.info(
-        "Commerce relationship verification completed successfully"
-    )
+    logger.info("Commerce relationship verification completed successfully")
 
 
 def load_commerce() -> None:
@@ -439,9 +402,7 @@ def load_commerce() -> None:
     processed CSVs are currently available.
     """
 
-    logger.info(
-        "Starting PostgreSQL commerce load"
-    )
+    logger.info("Starting PostgreSQL commerce load")
 
     tables_to_load = find_available_processed_files()
 
@@ -456,16 +417,12 @@ def load_commerce() -> None:
         expected_row_counts: dict[str, int] = {}
 
         for table_name in tables_to_load:
-            expected_row_counts[table_name] = (
-                load_csv_into_table(
-                    connection,
-                    table_name,
-                )
+            expected_row_counts[table_name] = load_csv_into_table(
+                connection,
+                table_name,
             )
 
-        for table_name, expected_rows in (
-            expected_row_counts.items()
-        ):
+        for table_name, expected_rows in expected_row_counts.items():
             verify_table_row_count(
                 connection,
                 table_name,
@@ -491,13 +448,9 @@ def load_commerce() -> None:
         if connection is not None:
             connection.rollback()
 
-            logger.info(
-                "Commerce transaction rolled back"
-            )
+            logger.info("Commerce transaction rolled back")
 
-        logger.exception(
-            "PostgreSQL commerce load failed"
-        )
+        logger.exception("PostgreSQL commerce load failed")
 
         raise
 
@@ -505,9 +458,7 @@ def load_commerce() -> None:
         if connection is not None:
             connection.close()
 
-            logger.info(
-                "PostgreSQL connection closed"
-            )
+            logger.info("PostgreSQL connection closed")
 
 
 def main() -> int:

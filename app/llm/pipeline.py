@@ -73,9 +73,7 @@ def _get_database_metadata() -> dict[str, Any]:
 
         return {
             "status": "unavailable",
-            "message": (
-                "Database metadata was returned in an unsupported format."
-            ),
+            "message": ("Database metadata was returned in an unsupported format."),
         }
 
     return metadata
@@ -178,9 +176,7 @@ def understand_and_generate_sql(
         ) from error
 
     if not isinstance(result, dict):
-        raise LLMError(
-            "Understand-and-generate-SQL response was not a JSON object."
-        )
+        raise LLMError("Understand-and-generate-SQL response was not a JSON object.")
 
     sql = result.pop("sql", None)
 
@@ -246,9 +242,7 @@ def regenerate_sql(
         "validation_error",
         "database_error",
     }:
-        raise LLMError(
-            "Failure type must be validation_error or database_error."
-        )
+        raise LLMError("Failure type must be validation_error or database_error.")
 
     if not isinstance(error_message, str) or not error_message.strip():
         raise LLMError("Error message cannot be empty.")
@@ -281,16 +275,12 @@ def regenerate_sql(
         if len(parts) >= 2:
             corrected_sql = parts[1]
             corrected_sql = corrected_sql.removeprefix("sql").strip()
-            corrected_sql = corrected_sql.removeprefix(
-                "postgresql"
-            ).strip()
+            corrected_sql = corrected_sql.removeprefix("postgresql").strip()
 
     corrected_sql = corrected_sql.strip()
 
     if not corrected_sql:
-        raise LLMError(
-            "Gemini generated an empty corrected SQL query."
-        )
+        raise LLMError("Gemini generated an empty corrected SQL query.")
 
     logger.info(
         "SQL regenerated after %s (%d chars)",
@@ -324,10 +314,7 @@ def explain_results(
     else:
         result_lines = []
 
-    result_lines.extend(
-        ", ".join(str(value) for value in row)
-        for row in preview_rows
-    )
+    result_lines.extend(", ".join(str(value) for value in row) for row in preview_rows)
 
     results_text = "\n".join(result_lines)
 

@@ -1,0 +1,8 @@
+-r requirements.in
+-r requirements-etl.in
+
+kaggle
+jupytext
+black
+ruff
+pytest

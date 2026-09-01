@@ -2,7 +2,6 @@ import pandas as pd
 
 from etl.config import SOURCE_COUNTRY
 
-
 SUPPLIER_OUTPUT_COLUMNS = [
     "supplier_id",
     "supplier_name",
@@ -55,9 +54,7 @@ def transform_suppliers(
         }
     ).copy()
 
-    duplicate_count = int(
-        transformed["source_supplier_id"].duplicated().sum()
-    )
+    duplicate_count = int(transformed["source_supplier_id"].duplicated().sum())
 
     if duplicate_count:
         raise ValueError(
@@ -73,9 +70,9 @@ def transform_suppliers(
 
     # DERIVED: a deterministic, traceable placeholder built from the real
     # source identifier -- never a fabricated company name.
-    transformed["supplier_name"] = (
-        "Supplier " + transformed["source_supplier_id"].astype(str)
-    )
+    transformed["supplier_name"] = "Supplier " + transformed[
+        "source_supplier_id"
+    ].astype(str)
 
     transformed["country"] = SOURCE_COUNTRY
 

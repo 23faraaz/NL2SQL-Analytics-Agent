@@ -45,9 +45,7 @@ GEMINI_REQUEST_TIMEOUT_SECONDS = float(
 # MAX_ATTEMPTS above, which governs 5xx ServerError retries. Deliberately
 # small so a rate-limited question fails fast rather than holding the
 # Streamlit UI for minutes.
-GEMINI_RATE_LIMIT_MAX_ATTEMPTS = int(
-    os.getenv("GEMINI_RATE_LIMIT_MAX_ATTEMPTS", "2")
-)
+GEMINI_RATE_LIMIT_MAX_ATTEMPTS = int(os.getenv("GEMINI_RATE_LIMIT_MAX_ATTEMPTS", "2"))
 GEMINI_RATE_LIMIT_MAX_DELAY_SECONDS = float(
     os.getenv("GEMINI_RATE_LIMIT_MAX_DELAY_SECONDS", "10")
 )
@@ -180,9 +178,7 @@ class GeminiProvider(LLMProvider):
             except errors.ClientError as error:
                 if error.code != 429:
                     logger.error("Gemini client error: %s", error)
-                    raise LLMError(
-                        f"Gemini API request failed: {error}"
-                    ) from error
+                    raise LLMError(f"Gemini API request failed: {error}") from error
 
                 rate_limit_attempts += 1
 
@@ -193,9 +189,7 @@ class GeminiProvider(LLMProvider):
                     # suggestion longer than the cap will not resolve on
                     # a short retry, so treat it as exhausted (fail fast)
                     # rather than actually holding the UI that long.
-                    is_transient = (
-                        retry_delay <= GEMINI_RATE_LIMIT_MAX_DELAY_SECONDS
-                    )
+                    is_transient = retry_delay <= GEMINI_RATE_LIMIT_MAX_DELAY_SECONDS
                     delay_seconds = min(
                         retry_delay,
                         GEMINI_RATE_LIMIT_MAX_DELAY_SECONDS,

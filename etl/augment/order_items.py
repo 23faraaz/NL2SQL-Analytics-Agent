@@ -1,6 +1,5 @@
 import pandas as pd
 
-
 ORDER_ITEM_FINAL_COLUMNS = [
     "order_item_id",
     "order_id",
@@ -65,9 +64,7 @@ def augment_order_items(
         )
 
     required_variant_columns = {"variant_id", "product_id", "unit_cost"}
-    missing_variant_columns = (
-        required_variant_columns - set(product_variants.columns)
-    )
+    missing_variant_columns = required_variant_columns - set(product_variants.columns)
 
     if missing_variant_columns:
         raise ValueError(
@@ -128,9 +125,9 @@ def augment_order_items(
         for variant in variants
     }
 
-    consolidated["unit_cost_at_sale"] = consolidated["variant_id"].map(
-        unit_cost_by_variant
-    ).round(2)
+    consolidated["unit_cost_at_sale"] = (
+        consolidated["variant_id"].map(unit_cost_by_variant).round(2)
+    )
 
     consolidated["unit_sale_price"] = consolidated["unit_sale_price"].round(2)
 
@@ -142,9 +139,9 @@ def augment_order_items(
         consolidated["line_revenue"] - consolidated["line_cost"]
     ).round(2)
 
-    consolidated = consolidated.sort_values(
-        ["order_id", "variant_id"]
-    ).reset_index(drop=True)
+    consolidated = consolidated.sort_values(["order_id", "variant_id"]).reset_index(
+        drop=True
+    )
 
     consolidated.insert(
         0,

@@ -2,7 +2,6 @@ import pandas as pd
 
 from etl.config import ORDER_STATUS_MAP, SOURCE_COUNTRY, SOURCE_SALES_CHANNEL
 
-
 ORDER_OUTPUT_COLUMNS = [
     "order_id",
     "source_order_id",
@@ -61,9 +60,7 @@ def transform_orders(
         "order_purchase_timestamp",
     }
 
-    missing_order_columns = (
-        required_order_columns - set(orders.columns)
-    )
+    missing_order_columns = required_order_columns - set(orders.columns)
 
     if missing_order_columns:
         raise ValueError(
@@ -80,9 +77,7 @@ def transform_orders(
         "country",
     }
 
-    missing_customer_columns = (
-        required_customer_columns - set(customers.columns)
-    )
+    missing_customer_columns = required_customer_columns - set(customers.columns)
 
     if missing_customer_columns:
         raise ValueError(
@@ -103,10 +98,7 @@ def transform_orders(
         errors="coerce",
     )
 
-    unmapped_status = (
-        set(transformed["order_status"].unique())
-        - set(ORDER_STATUS_MAP)
-    )
+    unmapped_status = set(transformed["order_status"].unique()) - set(ORDER_STATUS_MAP)
 
     if unmapped_status:
         raise ValueError(
@@ -114,9 +106,7 @@ def transform_orders(
             f"commerce.orders.status mapping: {sorted(unmapped_status)}"
         )
 
-    transformed["status"] = transformed["order_status"].map(
-        ORDER_STATUS_MAP
-    )
+    transformed["status"] = transformed["order_status"].map(ORDER_STATUS_MAP)
 
     transformed["sales_channel"] = SOURCE_SALES_CHANNEL
 
@@ -143,9 +133,7 @@ def transform_orders(
         validate="many_to_one",
     )
 
-    missing_customer_matches = int(
-        transformed["customer_id"].isna().sum()
-    )
+    missing_customer_matches = int(transformed["customer_id"].isna().sum())
 
     if missing_customer_matches:
         raise ValueError(
@@ -153,9 +141,7 @@ def transform_orders(
             "matched to processed customers"
         )
 
-    transformed["customer_id"] = (
-        transformed["customer_id"].astype(int)
-    )
+    transformed["customer_id"] = transformed["customer_id"].astype(int)
 
     transformed["shipping_country"] = SOURCE_COUNTRY
 
@@ -166,13 +152,9 @@ def transform_orders(
     )
 
     if transformed["source_order_id"].duplicated().any():
-        raise ValueError(
-            "Duplicate source order IDs were found"
-        )
+        raise ValueError("Duplicate source order IDs were found")
 
-    transformed["order_number"] = (
-        "ORD-" + transformed["source_order_id"].astype(str)
-    )
+    transformed["order_number"] = "ORD-" + transformed["source_order_id"].astype(str)
 
     return transformed[ORDER_OUTPUT_COLUMNS]
 
@@ -227,9 +209,7 @@ def finalize_order_totals(
     )
 
     transformed["subtotal"] = transformed["subtotal"].fillna(0).round(2)
-    transformed["shipping_cost"] = (
-        transformed["shipping_cost"].fillna(0).round(2)
-    )
+    transformed["shipping_cost"] = transformed["shipping_cost"].fillna(0).round(2)
     transformed["total_amount"] = (
         transformed["subtotal"] + transformed["shipping_cost"]
     ).round(2)

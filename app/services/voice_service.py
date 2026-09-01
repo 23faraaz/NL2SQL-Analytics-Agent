@@ -35,9 +35,7 @@ GROQ_TRANSCRIPTION_URL = "https://api.groq.com/openai/v1/audio/transcriptions"
 # that this be configurable but not mandatory to set.
 GROQ_WHISPER_MODEL = os.getenv("GROQ_WHISPER_MODEL", "whisper-large-v3-turbo")
 
-GROQ_WHISPER_TIMEOUT_SECONDS = float(
-    os.getenv("GROQ_WHISPER_TIMEOUT_SECONDS", "30")
-)
+GROQ_WHISPER_TIMEOUT_SECONDS = float(os.getenv("GROQ_WHISPER_TIMEOUT_SECONDS", "30"))
 
 
 class VoiceServiceError(Exception):
@@ -105,9 +103,7 @@ def transcribe_audio(
         ) from error
 
     if response.status_code == 429:
-        logger.error(
-            "Groq transcription rate limited: %s", response.text[:500]
-        )
+        logger.error("Groq transcription rate limited: %s", response.text[:500])
         raise VoiceServiceError(
             "The transcription service is rate limited. Please try again shortly."
         )
