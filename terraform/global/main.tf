@@ -77,3 +77,14 @@ module "ci_publish_role" {
   github_oidc_subject = var.github_oidc_subject
   ecr_repository_arn  = aws_ecr_repository.app.arn
 }
+
+module "infrastructure_roles" {
+  source = "../modules/infrastructure-roles"
+
+  oidc_provider_arn        = module.github_oidc_provider.arn
+  plan_subject             = var.github_oidc_subject
+  apply_subject            = var.github_production_subject
+  state_bucket_name        = var.terraform_state_bucket_name
+  state_kms_key_arn        = var.terraform_state_kms_key_arn
+  permissions_boundary_arn = var.infrastructure_permissions_boundary_arn
+}

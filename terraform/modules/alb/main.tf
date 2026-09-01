@@ -61,6 +61,9 @@ resource "aws_vpc_security_group_ingress_rule" "ecs_from_alb" {
   to_port                      = var.application_port
 }
 
+# ECS calls ECR, CloudWatch, Secrets Manager, and external AI APIs whose public
+# IP ranges are not stable enough for security-group CIDR allowlisting.
+#trivy:ignore:AVD-AWS-0104
 resource "aws_vpc_security_group_egress_rule" "ecs_https" {
   security_group_id = aws_security_group.ecs_tasks.id
   description       = "Allow HTTPS access through the NAT Gateway"
@@ -70,6 +73,8 @@ resource "aws_vpc_security_group_egress_rule" "ecs_https" {
   to_port           = 443
 }
 
+# This is the intentional public entry point; ECS tasks and RDS remain private.
+#trivy:ignore:AVD-AWS-0053
 resource "aws_lb" "app" {
   name                       = "${var.environment}-nl2sql-alb"
   internal                   = false
@@ -78,6 +83,16 @@ resource "aws_lb" "app" {
   subnets                    = var.public_subnet_ids
   drop_invalid_header_fields = true
   enable_deletion_protection = var.enable_deletion_protection
+
+  dynamic "access_logs" {
+    for_each = var.access_logs_bucket == null ? [] : [1]
+
+    content {
+      bucket  = var.access_logs_bucket
+      prefix  = var.access_logs_prefix
+      enabled = true
+    }
+  }
 
   tags = merge(local.common_tags, {
     Name = "${var.environment}-nl2sql-alb"
@@ -109,10 +124,41 @@ resource "aws_lb_target_group" "app" {
   })
 }
 
+# Port 80 serves no application traffic and redirects every request to HTTPS.
+#trivy:ignore:AVD-AWS-0054
 resource "aws_lb_listener" "http" {
   load_balancer_arn = aws_lb.app.arn
   port              = 80
   protocol          = "HTTP"
+
+  default_action {
+    type = "redirect"
+
+    redirect {
+      port        = "443"
+      protocol    = "HTTPS"
+      status_code = "HTTP_301"
+    }
+  }
+
+  tags = local.common_tags
+}
+
+resource "aws_vpc_security_group_ingress_rule" "alb_https" {
+  security_group_id = aws_security_group.alb.id
+  description       = "Allow public HTTPS traffic to the ALB"
+  cidr_ipv4         = var.allowed_ingress_cidr
+  from_port         = 443
+  ip_protocol       = "tcp"
+  to_port           = 443
+}
+
+resource "aws_lb_listener" "https" {
+  load_balancer_arn = aws_lb.app.arn
+  port              = 443
+  protocol          = "HTTPS"
+  certificate_arn   = var.certificate_arn
+  ssl_policy        = var.ssl_policy
 
   default_action {
     type             = "forward"

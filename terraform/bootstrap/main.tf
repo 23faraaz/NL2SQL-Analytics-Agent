@@ -15,6 +15,23 @@ resource "aws_s3_bucket" "state" {
   }
 }
 
+resource "aws_kms_key" "state" {
+  description             = "Encrypts NL2SQL Terraform state"
+  enable_key_rotation     = true
+  deletion_window_in_days = 30
+
+  tags = {
+    Project   = "nl2sql-agent"
+    ManagedBy = "terraform"
+    Purpose   = "terraform-state"
+  }
+}
+
+resource "aws_kms_alias" "state" {
+  name          = "alias/nl2sql-terraform-state"
+  target_key_id = aws_kms_key.state.key_id
+}
+
 # Keep previous versions of the state file
 resource "aws_s3_bucket_versioning" "state" {
   bucket = aws_s3_bucket.state.id
@@ -30,8 +47,11 @@ resource "aws_s3_bucket_server_side_encryption_configuration" "state" {
 
   rule {
     apply_server_side_encryption_by_default {
-      sse_algorithm = "AES256"
+      kms_master_key_id = aws_kms_key.state.arn
+      sse_algorithm     = "aws:kms"
     }
+
+    bucket_key_enabled = true
   }
 }
 
