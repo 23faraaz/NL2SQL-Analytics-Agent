@@ -80,7 +80,7 @@ jobs:
       - name: Set up Terraform
         uses: hashicorp/setup-terraform@b9cd54a3c349d3f38e8881555d616ced269862dd # v3
         with:
-          terraform_version: 1.15.0
+          terraform_version: 1.15.9
 
       - name: Check Terraform formatting
         run: terraform fmt -check -recursive terraform
@@ -90,6 +90,7 @@ jobs:
         run: |
           set -euo pipefail
           for root in terraform/bootstrap terraform/global terraform/environments/staging terraform/environments/production; do
+            echo "Validating ${root}"
             terraform -chdir="${root}" init -backend=false
             terraform -chdir="${root}" validate
           done
