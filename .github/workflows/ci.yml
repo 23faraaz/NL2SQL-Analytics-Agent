@@ -88,26 +88,28 @@ jobs:
           image-tag: sha-${{ github.sha }}
           platform: linux/amd64
 
-      - name: Scan image for high and critical vulnerabilities
-        uses: aquasecurity/trivy-action@b6643a29fecd7f34b3597bc6acb0a98b03d33ff8 # v0.33.1
-        with:
-          image-ref: ${{ steps.image.outputs.image-ref }}
-          format: table
-          severity: HIGH,CRITICAL
-          exit-code: "1"
-
       - name: Save Trivy audit report
-        if: always()
-        uses: aquasecurity/trivy-action@b6643a29fecd7f34b3597bc6acb0a98b03d33ff8 # v0.33.1
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
         with:
           image-ref: ${{ steps.image.outputs.image-ref }}
+          version: v0.70.0
           format: sarif
           output: trivy-results.sarif
           severity: HIGH,CRITICAL
           exit-code: "0"
 
+      - name: Enforce high and critical vulnerability gate
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          image-ref: ${{ steps.image.outputs.image-ref }}
+          version: v0.70.0
+          format: table
+          severity: HIGH,CRITICAL
+          exit-code: "1"
+          skip-setup-trivy: true
+
       - name: Upload Trivy audit report
-        if: always()
+        if: ${{ always() && hashFiles('trivy-results.sarif') != '' }}
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: trivy-results-${{ github.sha }}
