@@ -68,7 +68,7 @@ variable "instance_class" {
 
 variable "allocated_storage" {
   description = "Initial database storage allocation in GiB"
-  type        = numbe
+  type        = number
 
   validation {
     condition = (
@@ -86,7 +86,7 @@ variable "multi_az" {
 
 variable "backup_retention_days" {
   description = "Number of days automated database backups are retained"
-  type        = numbe
+  type        = number
 
   validation {
     condition = (
@@ -111,7 +111,7 @@ variable "engine_version" {
 
 variable "max_allocated_storage" {
   description = "Maximum storage autoscaling limit in GiB"
-  type        = numbe
+  type        = number
   default     = 100
 
   validation {
@@ -122,6 +122,6 @@ variable "max_allocated_storage" {
 
 variable "log_retention_days" {
   description = "Retention for exported PostgreSQL logs"
-  type        = numbe
+  type        = number
   default     = 30
 }
