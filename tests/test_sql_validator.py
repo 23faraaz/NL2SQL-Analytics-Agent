@@ -15,7 +15,6 @@ if str(APP_DIR) not in sys.path:
 
 from sql_validator import SQLValidationError, validate_select_only  # noqa: E402
 
-
 # ---------------------------------------------------------------------
 # Valid SQL that must pass.
 # ---------------------------------------------------------------------
@@ -143,9 +142,7 @@ def test_column_alias_containing_forbidden_word_does_not_cause_false_rejection()
 
 def test_select_into_is_rejected():
     with pytest.raises(SQLValidationError):
-        validate_select_only(
-            "SELECT * INTO new_table FROM commerce.customers"
-        )
+        validate_select_only("SELECT * INTO new_table FROM commerce.customers")
 
 
 # ---------------------------------------------------------------------

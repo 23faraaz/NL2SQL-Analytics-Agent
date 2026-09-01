@@ -162,9 +162,7 @@ def commerce_test_db():
 
         # Restart the customer_id sequence past our manually-assigned
         # IDs so it never collides with them.
-        cursor.execute(
-            "SELECT setval('commerce.customers_customer_id_seq', 1000);"
-        )
+        cursor.execute("SELECT setval('commerce.customers_customer_id_seq', 1000);")
 
     conn.close()
 
@@ -209,9 +207,7 @@ def test_validate_limit_rejects_non_positive(bad_limit):
 
 def test_validate_limit_rejects_exceeding_max():
     with pytest.raises(customer_service.CustomerServiceError):
-        customer_service._validate_limit(
-            customer_service.MAX_TOP_N_LIMIT + 1
-        )
+        customer_service._validate_limit(customer_service.MAX_TOP_N_LIMIT + 1)
 
 
 @pytest.mark.parametrize("bad_limit", ["10", 10.5, None, True])
@@ -277,10 +273,7 @@ def test_order_history_filters_to_requested_customer_only(commerce_test_db):
     assert not result.empty
     assert result["order_number"].tolist() == ["ORD-TEST-1"]
     # No cross-contamination from other customers' orders.
-    assert all(
-        order_number.endswith("-1")
-        for order_number in result["order_number"]
-    )
+    assert all(order_number.endswith("-1") for order_number in result["order_number"])
 
 
 @pytest.mark.integration
@@ -324,9 +317,7 @@ def test_tier_breakdown_display_order(commerce_test_db):
 
     present_tiers = breakdown["customer_value_tier"].tolist()
     expected_order = [
-        tier
-        for tier in customer_service.TIER_DISPLAY_ORDER
-        if tier in present_tiers
+        tier for tier in customer_service.TIER_DISPLAY_ORDER if tier in present_tiers
     ]
 
     assert present_tiers == expected_order

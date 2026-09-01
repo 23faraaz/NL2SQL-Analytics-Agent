@@ -31,7 +31,6 @@ import db  # noqa: E402
 import llm  # noqa: E402
 import sql_validator  # noqa: E402
 
-
 RUN_LIVE = os.getenv("RUN_LIVE_LLM_REGRESSION") == "1"
 
 pytestmark = pytest.mark.skipif(
@@ -63,8 +62,7 @@ REGRESSION_CASES = [
     (
         "ranking_top_n",
         "Who are our top 5 customers by revenue?",
-        lambda understanding, sql: "ORDER BY" in sql.upper()
-        and "LIMIT" in sql.upper(),
+        lambda understanding, sql: "ORDER BY" in sql.upper() and "LIMIT" in sql.upper(),
     ),
     (
         "date_filtering",

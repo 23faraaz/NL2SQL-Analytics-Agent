@@ -76,9 +76,7 @@ def get_connection() -> PostgreSQLConnection:
 
     try:
         if database_url:
-            logger.info(
-                "Connecting to PostgreSQL using DATABASE_URL"
-            )
+            logger.info("Connecting to PostgreSQL using DATABASE_URL")
 
             return psycopg2.connect(
                 database_url,
@@ -94,9 +92,7 @@ def get_connection() -> PostgreSQLConnection:
             connection_params["port"],
         )
 
-        return psycopg2.connect(
-            **connection_params
-        )
+        return psycopg2.connect(**connection_params)
 
     except psycopg2.Error as error:
         logger.error(
@@ -104,9 +100,7 @@ def get_connection() -> PostgreSQLConnection:
             error,
         )
 
-        raise DatabaseError(
-            f"Could not connect to PostgreSQL: {error}"
-        ) from error
+        raise DatabaseError(f"Could not connect to PostgreSQL: {error}") from error
 
 
 def get_schema_description() -> str:
@@ -176,14 +170,11 @@ def get_schema_description() -> str:
         )
 
         raise DatabaseError(
-            "Could not introspect the commerce schema: "
-            f"{error}"
+            "Could not introspect the commerce schema: " f"{error}"
         ) from error
 
     if not columns:
-        raise DatabaseError(
-            "No base tables were found in the commerce schema"
-        )
+        raise DatabaseError("No base tables were found in the commerce schema")
 
     tables: dict[str, list[str]] = {}
 
@@ -192,19 +183,12 @@ def get_schema_description() -> str:
         column_name = str(row["column_name"])
         data_type = str(row["data_type"])
 
-        nullable = (
-            "NULL"
-            if row["is_nullable"] == "YES"
-            else "NOT NULL"
-        )
+        nullable = "NULL" if row["is_nullable"] == "YES" else "NOT NULL"
 
         tables.setdefault(
             table_name,
             [],
-        ).append(
-            f"  - {column_name} "
-            f"({data_type}, {nullable})"
-        )
+        ).append(f"  - {column_name} " f"({data_type}, {nullable})")
 
     lines = [
         "DATABASE: PostgreSQL",
@@ -224,20 +208,14 @@ def get_schema_description() -> str:
     ]
 
     for table_name, table_columns in tables.items():
-        lines.append(
-            f"TABLE commerce.{table_name}:"
-        )
+        lines.append(f"TABLE commerce.{table_name}:")
 
-        lines.extend(
-            table_columns
-        )
+        lines.extend(table_columns)
 
         lines.append("")
 
     if foreign_keys:
-        lines.append(
-            "FOREIGN KEYS:"
-        )
+        lines.append("FOREIGN KEYS:")
 
         for foreign_key in foreign_keys:
             lines.append(
@@ -249,9 +227,7 @@ def get_schema_description() -> str:
                 f"{foreign_key['target_column']}"
             )
 
-    schema_text = "\n".join(
-        lines
-    ).strip()
+    schema_text = "\n".join(lines).strip()
 
     logger.info(
         "Commerce schema introspected successfully: %d tables",
@@ -284,16 +260,12 @@ def execute_query(
     """
 
     if not isinstance(sql, str):
-        raise DatabaseError(
-            "SQL query must be a string"
-        )
+        raise DatabaseError("SQL query must be a string")
 
     cleaned_sql = sql.strip()
 
     if not cleaned_sql:
-        raise DatabaseError(
-            "SQL query cannot be empty"
-        )
+        raise DatabaseError("SQL query cannot be empty")
 
     connection: PostgreSQLConnection | None = None
 
@@ -308,14 +280,10 @@ def execute_query(
 
         with connection.cursor() as cursor:
             # Limit query execution time.
-            cursor.execute(
-                "SET LOCAL statement_timeout = '10s';"
-            )
+            cursor.execute("SET LOCAL statement_timeout = '10s';")
 
             # Use the commerce schema by default.
-            cursor.execute(
-                "SET LOCAL search_path TO commerce, public;"
-            )
+            cursor.execute("SET LOCAL search_path TO commerce, public;")
 
             cursor.execute(
                 cleaned_sql,
@@ -323,14 +291,9 @@ def execute_query(
             )
 
             if cursor.description is None:
-                raise DatabaseError(
-                    "The SQL query did not return a result set"
-                )
+                raise DatabaseError("The SQL query did not return a result set")
 
-            columns = [
-                description.name
-                for description in cursor.description
-            ]
+            columns = [description.name for description in cursor.description]
 
             rows = cursor.fetchall()
 
@@ -358,17 +321,14 @@ def execute_query(
             error,
         )
 
-        raise DatabaseError(
-            f"Query execution failed: {error}"
-        ) from error
+        raise DatabaseError(f"Query execution failed: {error}") from error
 
     finally:
         if connection is not None:
             connection.close()
 
-            logger.debug(
-                "PostgreSQL connection closed"
-            )
+            logger.debug("PostgreSQL connection closed")
+
 
 def get_database_metadata() -> dict:
     """
@@ -401,20 +361,14 @@ def get_database_metadata() -> dict:
     return {
         "status": "available",
         "earliest_order": (
-            earliest_order.isoformat()
-            if earliest_order is not None
-            else None
+            earliest_order.isoformat() if earliest_order is not None else None
         ),
         "latest_order": (
-            latest_order.isoformat()
-            if latest_order is not None
-            else None
+            latest_order.isoformat() if latest_order is not None else None
         ),
         "total_orders": int(total_orders),
         "dataset_type": "historical",
         "relative_date_anchor": (
-            latest_order.isoformat()
-            if latest_order is not None
-            else None
+            latest_order.isoformat() if latest_order is not None else None
         ),
     }

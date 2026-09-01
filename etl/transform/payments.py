@@ -2,7 +2,6 @@ import pandas as pd
 
 from etl.config import BRL_TO_GBP_RATE, PAYMENT_METHOD_MAP
 
-
 PAYMENT_OUTPUT_COLUMNS = [
     "payment_id",
     "order_id",
@@ -41,9 +40,7 @@ def transform_payments(
         "payment_value",
     }
 
-    missing_payment_columns = (
-        required_payment_columns - set(payments.columns)
-    )
+    missing_payment_columns = required_payment_columns - set(payments.columns)
 
     if missing_payment_columns:
         raise ValueError(
@@ -58,9 +55,7 @@ def transform_payments(
         "status",
     }
 
-    missing_order_columns = (
-        required_order_columns - set(orders.columns)
-    )
+    missing_order_columns = required_order_columns - set(orders.columns)
 
     if missing_order_columns:
         raise ValueError(
@@ -74,9 +69,8 @@ def transform_payments(
         }
     ).copy()
 
-    unmapped_methods = (
-        set(transformed["payment_type"].unique())
-        - set(PAYMENT_METHOD_MAP)
+    unmapped_methods = set(transformed["payment_type"].unique()) - set(
+        PAYMENT_METHOD_MAP
     )
 
     if unmapped_methods:
@@ -86,9 +80,7 @@ def transform_payments(
             f"{sorted(unmapped_methods)}"
         )
 
-    transformed["payment_method"] = transformed["payment_type"].map(
-        PAYMENT_METHOD_MAP
-    )
+    transformed["payment_method"] = transformed["payment_type"].map(PAYMENT_METHOD_MAP)
 
     order_lookup = orders[
         [
@@ -106,19 +98,14 @@ def transform_payments(
         validate="many_to_one",
     )
 
-    missing_orders = int(
-        transformed["order_id"].isna().sum()
-    )
+    missing_orders = int(transformed["order_id"].isna().sum())
 
     if missing_orders:
         raise ValueError(
-            f"{missing_orders:,} payments could not be matched "
-            "to processed orders"
+            f"{missing_orders:,} payments could not be matched " "to processed orders"
         )
 
-    transformed["order_id"] = (
-        transformed["order_id"].astype(int)
-    )
+    transformed["order_id"] = transformed["order_id"].astype(int)
 
     transformed["payment_status"] = transformed["status"].apply(
         lambda status: "SUCCESSFUL" if status != "CANCELLED" else "FAILED"
@@ -133,9 +120,7 @@ def transform_payments(
     )
 
     if transformed["payment_reference"].duplicated().any():
-        raise ValueError(
-            "Derived payment references are not unique"
-        )
+        raise ValueError("Derived payment references are not unique")
 
     transformed["amount"] = (
         pd.to_numeric(
@@ -146,14 +131,10 @@ def transform_payments(
     ).round(2)
 
     if transformed["amount"].isna().any():
-        raise ValueError(
-            "Payments contain invalid payment values"
-        )
+        raise ValueError("Payments contain invalid payment values")
 
     if (transformed["amount"] < 0).any():
-        raise ValueError(
-            "Payments contain negative payment values"
-        )
+        raise ValueError("Payments contain negative payment values")
 
     transformed.insert(
         0,

@@ -1,6 +1,5 @@
 import pandas as pd
 
-
 CATEGORY_OUTPUT_COLUMNS = [
     "category_id",
     "source_category_name",
@@ -30,9 +29,7 @@ def transform_categories(
             f"{sorted(missing_columns)}"
         )
 
-    transformed = categories.drop_duplicates(
-        subset=["product_category_name"]
-    ).copy()
+    transformed = categories.drop_duplicates(subset=["product_category_name"]).copy()
 
     transformed = transformed.rename(
         columns={

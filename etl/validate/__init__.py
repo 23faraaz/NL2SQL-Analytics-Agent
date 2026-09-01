@@ -5,7 +5,6 @@ from etl.validate.relationships import (
     validate_all_relationships,
 )
 
-
 __all__ = [
     "validate_all_augmented",
     "validate_all_processed",

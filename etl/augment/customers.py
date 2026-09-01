@@ -5,7 +5,6 @@ from faker import Faker
 
 from etl.augment.config import ACQUISITION_CHANNELS, AUGMENTATION_SEED
 
-
 CUSTOMER_FINAL_COLUMNS = [
     "customer_id",
     "first_name",
@@ -77,9 +76,7 @@ def augment_customers(
 
         # Deterministic and guaranteed-unique across the batch, rather
         # than relying on Faker's own uniqueness tracking.
-        emails.append(
-            f"{first_name}.{last_name}.{row_index + 1}@example.com".lower()
-        )
+        emails.append(f"{first_name}.{last_name}.{row_index + 1}@example.com".lower())
 
         phones.append(faker.phone_number()[:30])
         addresses.append(faker.street_address()[:255])
@@ -93,8 +90,6 @@ def augment_customers(
     augmented["acquisition_channel"] = channels
 
     if augmented["email"].duplicated().any():
-        raise ValueError(
-            "Generated customer emails are not unique"
-        )
+        raise ValueError("Generated customer emails are not unique")
 
     return augmented[CUSTOMER_FINAL_COLUMNS]

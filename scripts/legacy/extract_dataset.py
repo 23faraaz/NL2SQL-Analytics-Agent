@@ -3,7 +3,6 @@ import sys
 
 import pandas as pd
 
-
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 RAW_DATA_DIR = PROJECT_ROOT / "data" / "raw"
 
@@ -126,7 +125,9 @@ def print_dataset_summary(dataset_name: str, dataframe: pd.DataFrame) -> None:
     print(f"Columns:           {total_columns}")
     print(f"Duplicate rows:    {duplicate_rows:,}")
     print(f"Missing cells:     {missing_cells:,}")
-    print(f"Memory usage:      {dataframe.memory_usage(deep=True).sum() / 1_048_576:.2f} MB")
+    print(
+        f"Memory usage:      {dataframe.memory_usage(deep=True).sum() / 1_048_576:.2f} MB"
+    )
 
     missing_by_column = dataframe.isna().sum()
     missing_by_column = missing_by_column[missing_by_column > 0].sort_values(

@@ -2,7 +2,6 @@ import pandas as pd
 
 from etl.config import BRL_TO_GBP_RATE
 
-
 ORDER_ITEM_OUTPUT_COLUMNS = [
     "order_item_id",
     "order_id",
@@ -115,14 +114,10 @@ def transform_order_items(
     )
 
     if transformed["order_id"].isna().any():
-        raise ValueError(
-            "Some order items could not be matched to orders."
-        )
+        raise ValueError("Some order items could not be matched to orders.")
 
     if transformed["product_id"].isna().any():
-        raise ValueError(
-            "Some order items could not be matched to products."
-        )
+        raise ValueError("Some order items could not be matched to products.")
 
     transformed["order_id"] = transformed["order_id"].astype(int)
     transformed["product_id"] = transformed["product_id"].astype(int)

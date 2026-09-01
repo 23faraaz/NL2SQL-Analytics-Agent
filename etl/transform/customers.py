@@ -2,7 +2,6 @@ import pandas as pd
 
 from etl.config import SOURCE_COUNTRY
 
-
 CUSTOMER_OUTPUT_COLUMNS = [
     "customer_id",
     "source_customer_id",
@@ -70,8 +69,6 @@ def transform_customers(
     )
 
     if transformed["source_customer_id"].duplicated().any():
-        raise ValueError(
-            "Duplicate source customer IDs were found"
-        )
+        raise ValueError("Duplicate source customer IDs were found")
 
     return transformed[CUSTOMER_OUTPUT_COLUMNS]

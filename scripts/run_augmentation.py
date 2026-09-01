@@ -3,7 +3,6 @@ import sys
 from etl.augment.pipeline import run_augmentation_pipeline
 from etl.logging_config import configure_logging, get_logger
 
-
 configure_logging()
 logger = get_logger(__name__)
 

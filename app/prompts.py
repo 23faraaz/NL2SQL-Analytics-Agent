@@ -5,7 +5,6 @@ Prompts are kept separate from API integration so prompt behaviour can be
 tested and changed independently from Gemini request handling.
 """
 
-
 UNDERSTAND_AND_GENERATE_SQL_PROMPT = """
 You are analysing a natural-language analytics question for a PostgreSQL
 e-commerce data warehouse, then generating the SQL query that answers it,

@@ -25,15 +25,27 @@ logger = logging.getLogger(__name__)
 
 # Statement types we will NEVER execute, regardless of framing.
 FORBIDDEN_KEYWORDS = {
-    "INSERT", "UPDATE", "DELETE", "DROP", "ALTER", "TRUNCATE",
-    "CREATE", "GRANT", "REVOKE", "REPLACE", "MERGE", "CALL",
-    "EXECUTE", "EXEC",
+    "INSERT",
+    "UPDATE",
+    "DELETE",
+    "DROP",
+    "ALTER",
+    "TRUNCATE",
+    "CREATE",
+    "GRANT",
+    "REVOKE",
+    "REPLACE",
+    "MERGE",
+    "CALL",
+    "EXECUTE",
+    "EXEC",
 }
 
 
 class SQLValidationError(Exception):
     """Raised when generated SQL fails validation. Never caught silently -
     the caller must surface this to the user, not swallow it."""
+
     pass
 
 

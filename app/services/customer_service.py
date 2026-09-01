@@ -23,7 +23,6 @@ import pandas as pd
 
 import db
 
-
 logger = logging.getLogger(__name__)
 
 
@@ -57,9 +56,7 @@ def _validate_limit(limit: int) -> int:
         )
 
     if limit < 1:
-        raise CustomerServiceError(
-            f"limit must be at least 1, got {limit}"
-        )
+        raise CustomerServiceError(f"limit must be at least 1, got {limit}")
 
     if limit > MAX_TOP_N_LIMIT:
         raise CustomerServiceError(
@@ -72,8 +69,7 @@ def _validate_limit(limit: int) -> int:
 def _validate_customer_id(customer_id: int) -> int:
     if isinstance(customer_id, bool) or not isinstance(customer_id, int):
         raise CustomerServiceError(
-            "customer_id must be an integer, got "
-            f"{type(customer_id).__name__}"
+            "customer_id must be an integer, got " f"{type(customer_id).__name__}"
         )
 
     if customer_id < 1:
@@ -162,9 +158,7 @@ def get_customer_order_history(
     exists_result = _run_query(exists_sql, (customer_id,))
 
     if exists_result.empty:
-        raise CustomerServiceError(
-            f"No customer found with customer_id={customer_id}."
-        )
+        raise CustomerServiceError(f"No customer found with customer_id={customer_id}.")
 
     history_sql = """
         SELECT

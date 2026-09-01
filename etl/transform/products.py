@@ -1,6 +1,5 @@
 import pandas as pd
 
-
 PRODUCT_OUTPUT_COLUMNS = [
     "product_id",
     "source_product_id",
@@ -44,9 +43,7 @@ def transform_products(
         "product_weight_g",
     }
 
-    missing_product_columns = (
-        required_product_columns - set(products.columns)
-    )
+    missing_product_columns = required_product_columns - set(products.columns)
 
     if missing_product_columns:
         raise ValueError(
@@ -59,9 +56,7 @@ def transform_products(
         "source_category_name",
     }
 
-    missing_category_columns = (
-        required_category_columns - set(categories.columns)
-    )
+    missing_category_columns = required_category_columns - set(categories.columns)
 
     if missing_category_columns:
         raise ValueError(
@@ -92,11 +87,7 @@ def transform_products(
     )
 
     # Zero temporarily represents an unknown or unmapped category.
-    transformed["category_id"] = (
-        transformed["category_id"]
-        .fillna(0)
-        .astype(int)
-    )
+    transformed["category_id"] = transformed["category_id"].fillna(0).astype(int)
 
     transformed.insert(
         0,
@@ -105,8 +96,6 @@ def transform_products(
     )
 
     if transformed["source_product_id"].duplicated().any():
-        raise ValueError(
-            "Duplicate source product IDs were found"
-        )
+        raise ValueError("Duplicate source product IDs were found")
 
     return transformed[PRODUCT_OUTPUT_COLUMNS]

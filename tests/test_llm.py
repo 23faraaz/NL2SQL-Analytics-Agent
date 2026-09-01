@@ -36,7 +36,6 @@ import llm  # noqa: E402
 from llm import gemini_provider  # noqa: E402
 from google.genai import errors  # noqa: E402
 
-
 # ---------------------------------------------------------------------
 # _extract_retry_delay_seconds
 # ---------------------------------------------------------------------
@@ -155,9 +154,7 @@ def test_suggest_followups_matches_entity_templates():
 
 
 def test_suggest_followups_returns_at_most_three():
-    understanding = {
-        "entities": ["customer", "order", "product", "revenue", "payment"]
-    }
+    understanding = {"entities": ["customer", "order", "product", "revenue", "payment"]}
 
     followups = llm.suggest_followups(
         "Give me an overview",
@@ -281,8 +278,7 @@ def test_call_gemini_retries_bounded_times_then_raises(monkeypatch):
         gemini_provider.GeminiProvider().generate("some prompt")
 
     assert (
-        fake_client.models.call_count
-        == gemini_provider.GEMINI_RATE_LIMIT_MAX_ATTEMPTS
+        fake_client.models.call_count == gemini_provider.GEMINI_RATE_LIMIT_MAX_ATTEMPTS
     )
 
 

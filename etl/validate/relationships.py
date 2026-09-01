@@ -2,7 +2,6 @@ import pandas as pd
 
 from etl.logging_config import get_logger
 
-
 logger = get_logger(__name__)
 
 
@@ -14,17 +13,9 @@ def validate_foreign_key(
     parent_column: str,
     relationship_name: str,
 ) -> None:
-    child_values = set(
-        child_dataframe[child_column]
-        .dropna()
-        .tolist()
-    )
+    child_values = set(child_dataframe[child_column].dropna().tolist())
 
-    parent_values = set(
-        parent_dataframe[parent_column]
-        .dropna()
-        .tolist()
-    )
+    parent_values = set(parent_dataframe[parent_column].dropna().tolist())
 
     missing_values = child_values - parent_values
 
@@ -111,6 +102,4 @@ def validate_all_relationships(
         relationship_name="payments.order_id -> orders.order_id",
     )
 
-    logger.info(
-        "Relationship validation (S4a) completed successfully"
-    )
+    logger.info("Relationship validation (S4a) completed successfully")

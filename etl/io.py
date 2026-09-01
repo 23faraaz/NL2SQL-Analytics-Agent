@@ -6,7 +6,6 @@ import pandas as pd
 from etl.config import PROCESSED_DATA_DIR, RAW_DATA_DIR
 from etl.logging_config import get_logger
 
-
 logger = get_logger(__name__)
 
 
@@ -19,14 +18,10 @@ def load_raw_csv(
     file_path = RAW_DATA_DIR / filename
 
     if not file_path.exists():
-        raise FileNotFoundError(
-            f"Raw dataset file does not exist: {file_path}"
-        )
+        raise FileNotFoundError(f"Raw dataset file does not exist: {file_path}")
 
     if file_path.stat().st_size == 0:
-        raise ValueError(
-            f"Raw dataset file is empty: {file_path}"
-        )
+        raise ValueError(f"Raw dataset file is empty: {file_path}")
 
     try:
         dataframe = pd.read_csv(

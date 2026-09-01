@@ -18,7 +18,6 @@ if str(APP_DIR) not in sys.path:
 import llm  # noqa: E402
 from llm import groq_provider  # noqa: E402
 
-
 UNDERSTANDING_SCHEMA = {
     "type": "object",
     "properties": {
@@ -83,26 +82,20 @@ def test_validate_config_succeeds_with_both_set(monkeypatch):
 
 
 def test_translate_schema_converts_nullable_to_type_union():
-    translated = groq_provider._translate_schema_for_strict_mode(
-        UNDERSTANDING_SCHEMA
-    )
+    translated = groq_provider._translate_schema_for_strict_mode(UNDERSTANDING_SCHEMA)
 
     assert translated["properties"]["time_filter"]["type"] == ["string", "null"]
     assert "nullable" not in translated["properties"]["time_filter"]
 
 
 def test_translate_schema_sets_additional_properties_false():
-    translated = groq_provider._translate_schema_for_strict_mode(
-        UNDERSTANDING_SCHEMA
-    )
+    translated = groq_provider._translate_schema_for_strict_mode(UNDERSTANDING_SCHEMA)
 
     assert translated["additionalProperties"] is False
 
 
 def test_translate_schema_requires_every_property():
-    translated = groq_provider._translate_schema_for_strict_mode(
-        UNDERSTANDING_SCHEMA
-    )
+    translated = groq_provider._translate_schema_for_strict_mode(UNDERSTANDING_SCHEMA)
 
     assert set(translated["required"]) == set(translated["properties"].keys())
 
@@ -242,9 +235,7 @@ def test_generate_rate_limit_retries_then_succeeds(monkeypatch):
     _patch_no_sleep(monkeypatch)
     _patch_env(monkeypatch)
 
-    fake_post = _FakePost(
-        [_rate_limited_response("0.1"), _ok_response("final answer")]
-    )
+    fake_post = _FakePost([_rate_limited_response("0.1"), _ok_response("final answer")])
     monkeypatch.setattr(groq_provider.requests, "post", fake_post)
 
     result = groq_provider.GroqProvider().generate("some prompt")

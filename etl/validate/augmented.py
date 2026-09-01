@@ -3,7 +3,6 @@ import pandas as pd
 from etl.config import ACQUISITION_CHANNELS
 from etl.logging_config import get_logger
 
-
 logger = get_logger(__name__)
 
 
@@ -189,9 +188,8 @@ def validate_customers(customers: pd.DataFrame) -> None:
             "commerce.customers.email is UNIQUE"
         )
 
-    invalid_channels = (
-        set(customers["acquisition_channel"].unique())
-        - set(ACQUISITION_CHANNELS)
+    invalid_channels = set(customers["acquisition_channel"].unique()) - set(
+        ACQUISITION_CHANNELS
     )
 
     if invalid_channels:
@@ -236,15 +234,11 @@ def validate_product_variants(product_variants: pd.DataFrame) -> None:
 
     if (product_variants["retail_price"] < 0).any():
         raise ValueError(
-            "Augmented product_variants.retail_price contains negative "
-            "values"
+            "Augmented product_variants.retail_price contains negative " "values"
         )
 
     margin_violations = int(
-        (
-            product_variants["retail_price"]
-            < product_variants["unit_cost"]
-        ).sum()
+        (product_variants["retail_price"] < product_variants["unit_cost"]).sum()
     )
 
     if margin_violations:
@@ -266,9 +260,7 @@ def validate_order_items(order_items: pd.DataFrame) -> None:
     validate_no_null_required_fields("order_items", order_items)
 
     if (order_items["quantity"] <= 0).any():
-        raise ValueError(
-            "Augmented order_items.quantity contains non-positive values"
-        )
+        raise ValueError("Augmented order_items.quantity contains non-positive values")
 
     if (order_items["unit_sale_price"] < 0).any():
         raise ValueError(
@@ -277,19 +269,14 @@ def validate_order_items(order_items: pd.DataFrame) -> None:
 
     if (order_items["unit_cost_at_sale"] < 0).any():
         raise ValueError(
-            "Augmented order_items.unit_cost_at_sale contains negative "
-            "values"
+            "Augmented order_items.unit_cost_at_sale contains negative " "values"
         )
 
     if (order_items["line_revenue"] < 0).any():
-        raise ValueError(
-            "Augmented order_items.line_revenue contains negative values"
-        )
+        raise ValueError("Augmented order_items.line_revenue contains negative values")
 
     if (order_items["line_cost"] < 0).any():
-        raise ValueError(
-            "Augmented order_items.line_cost contains negative values"
-        )
+        raise ValueError("Augmented order_items.line_cost contains negative values")
 
     logger.info(
         "Validated augmented order_items dataset (%d rows)",
@@ -311,9 +298,8 @@ def validate_all_augmented(
     validate_product_variants(product_variants)
     validate_order_items(order_items)
 
-    unresolved_variants = (
-        set(order_items["variant_id"].dropna())
-        - set(product_variants["variant_id"])
+    unresolved_variants = set(order_items["variant_id"].dropna()) - set(
+        product_variants["variant_id"]
     )
 
     if unresolved_variants:
@@ -327,6 +313,4 @@ def validate_all_augmented(
         "product_variants.variant_id"
     )
 
-    logger.info(
-        "Augmented (S4b) dataset validation completed successfully"
-    )
+    logger.info("Augmented (S4b) dataset validation completed successfully")

@@ -29,7 +29,6 @@ from services import customer_service, product_service, revenue_service, voice_s
 from services.analytics_service import execute_analytics_query
 from services.chart_service import format_label, recommend_chart
 
-
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s | %(levelname)s | %(name)s | %(message)s",
@@ -140,12 +139,7 @@ def initialise_session_state() -> None:
 
 
 def is_number_only(question: str) -> bool:
-    cleaned = (
-        question.strip()
-        .replace(",", "")
-        .replace("£", "")
-        .replace("$", "")
-    )
+    cleaned = question.strip().replace(",", "").replace("£", "").replace("$", "")
 
     return bool(re.fullmatch(r"-?\d+(\.\d+)?", cleaned))
 
@@ -271,8 +265,7 @@ def execute_pipeline(
         )
     except llm.LLMError as exc:
         st.error(
-            "The AI service is temporarily unavailable. "
-            "Please try again shortly."
+            "The AI service is temporarily unavailable. " "Please try again shortly."
         )
         logger.exception("Question understanding and SQL generation failed: %s", exc)
         return None
@@ -310,9 +303,7 @@ def execute_pipeline(
 
                 with st.expander("Rejected SQL attempts"):
                     for attempt in sql_attempts:
-                        st.markdown(
-                            f"#### Attempt {attempt['attempt']}"
-                        )
+                        st.markdown(f"#### Attempt {attempt['attempt']}")
                         st.code(
                             attempt["sql"],
                             language="sql",
@@ -332,8 +323,7 @@ def execute_pipeline(
                 )
             except llm.LLMError as regeneration_error:
                 st.error(
-                    "The query failed the safety checks and "
-                    "could not be corrected."
+                    "The query failed the safety checks and " "could not be corrected."
                 )
                 logger.exception(
                     "SQL regeneration after validation failure failed: %s",
@@ -371,9 +361,7 @@ def execute_pipeline(
 
                 with st.expander("Failed SQL attempts"):
                     for attempt in sql_attempts:
-                        st.markdown(
-                            f"#### Attempt {attempt['attempt']}"
-                        )
+                        st.markdown(f"#### Attempt {attempt['attempt']}")
                         st.code(
                             attempt["sql"],
                             language="sql",
@@ -407,9 +395,7 @@ def execute_pipeline(
         break
 
     if safe_sql is None or query_result is None:
-        logger.error(
-            "Pipeline finished without a validated SQL query or result."
-        )
+        logger.error("Pipeline finished without a validated SQL query or result.")
         st.error("The analysis could not be completed.")
         return None
 
@@ -440,9 +426,7 @@ def execute_pipeline(
             if query_result.row_count == 0:
                 explanation = "No matching records were found."
             else:
-                explanation = (
-                    f"The query returned {query_result.row_count:,} rows."
-                )
+                explanation = f"The query returned {query_result.row_count:,} rows."
 
             logger.exception("Result explanation failed: %s", exc)
 
@@ -473,14 +457,10 @@ def render_business_answer(result: dict[str, Any]) -> None:
     st.markdown("### Answer")
 
     if result.get("regenerated"):
-        st.info(
-            "The initial query failed and was corrected automatically."
-        )
+        st.info("The initial query failed and was corrected automatically.")
 
     if dataframe.empty:
-        st.info(
-            "The query ran successfully, but no matching records were found."
-        )
+        st.info("The query ran successfully, but no matching records were found.")
     else:
         recommendation = recommend_chart(dataframe)
 
@@ -520,9 +500,7 @@ def render_business_answer(result: dict[str, Any]) -> None:
     if followups:
         st.markdown("### Continue analysing")
 
-        followup_columns = st.columns(
-            min(len(followups), 3)
-        )
+        followup_columns = st.columns(min(len(followups), 3))
 
         for index, followup in enumerate(followups[:3]):
             with followup_columns[index]:
@@ -578,11 +556,7 @@ def render_sidebar() -> None:
         if st.button(
             "Assistant",
             use_container_width=True,
-            type=(
-                "primary"
-                if st.session_state.view == "assistant"
-                else "secondary"
-            ),
+            type=("primary" if st.session_state.view == "assistant" else "secondary"),
         ):
             st.session_state.view = "assistant"
             st.rerun()
@@ -626,9 +600,7 @@ def render_sidebar() -> None:
         st.markdown("---")
 
         with st.expander("Developer mode"):
-            st.caption(
-                "Schema and SQL details are available inside each response."
-            )
+            st.caption("Schema and SQL details are available inside each response.")
 
 
 def render_customer_analytics() -> None:
@@ -646,9 +618,7 @@ def render_customer_analytics() -> None:
     st.markdown("### Top 10 customers by lifetime value")
 
     try:
-        top_customers = customer_service.get_top_customers_by_lifetime_value(
-            limit=10
-        )
+        top_customers = customer_service.get_top_customers_by_lifetime_value(limit=10)
     except customer_service.CustomerServiceError as exc:
         st.error(str(exc))
         top_customers = None
@@ -743,9 +713,7 @@ def render_revenue_analytics() -> None:
         with kpi_columns[1]:
             st.metric(
                 "Total orders (all time)",
-                format_value(
-                    "total_orders", int(monthly["total_orders"].sum())
-                ),
+                format_value("total_orders", int(monthly["total_orders"].sum())),
             )
 
         with kpi_columns[2]:
@@ -771,9 +739,7 @@ def render_revenue_analytics() -> None:
     with st.container(border=True):
         # net_revenue comes back as Decimal (object dtype); chart
         # widgets need a native numeric dtype.
-        chart_data = monthly.set_index("sales_month")[["net_revenue"]].astype(
-            float
-        )
+        chart_data = monthly.set_index("sales_month")[["net_revenue"]].astype(float)
         st.line_chart(chart_data)
 
     st.markdown("### Monthly detail")
@@ -830,8 +796,9 @@ def render_product_analytics() -> None:
         else:
             with st.container(border=True):
                 st.bar_chart(
-                    by_category.set_index("category_name")[["net_revenue"]]
-                    .astype(float)
+                    by_category.set_index("category_name")[["net_revenue"]].astype(
+                        float
+                    )
                 )
 
             st.dataframe(
@@ -908,9 +875,7 @@ def process_question(question: str, schema: str) -> None:
         # replay via render_chat_history() (which re-renders
         # st.session_state.messages, populated below with this same
         # string) get the safe version -- not just the first display.
-        result["explanation"] = escape_markdown_math_delimiters(
-            result["explanation"]
-        )
+        result["explanation"] = escape_markdown_math_delimiters(result["explanation"])
 
         render_business_answer(result)
 
@@ -992,9 +957,7 @@ def main() -> None:
                 st.session_state.pending_question = transcript
                 st.rerun()
 
-    typed_question = st.chat_input(
-        "Ask about customers, revenue or sales performance"
-    )
+    typed_question = st.chat_input("Ask about customers, revenue or sales performance")
 
     if typed_question:
         process_question(
