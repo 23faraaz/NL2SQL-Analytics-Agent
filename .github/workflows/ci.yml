@@ -102,7 +102,7 @@ jobs:
           scan-ref: terraform
           severity: HIGH,CRITICAL
           exit-code: "1"
-          trivy-version: v0.70.0
+          version: v0.70.0
 
   container:
     name: Build and scan exact image
