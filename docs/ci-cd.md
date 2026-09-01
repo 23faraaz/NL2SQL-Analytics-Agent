@@ -13,6 +13,13 @@ dedicated CI publishing role through GitHub OIDC, and pushes the immutable
 `repository@sha256:...` URI for CD. CD must consume that digest and must never
 rebuild the image.
 
+The Trivy SARIF artifact records every HIGH and CRITICAL finding, including
+findings for which Debian has not published a fix. The blocking gate uses
+`ignore-unfixed: true`, so CI fails when a supported package upgrade can
+remediate a HIGH or CRITICAL vulnerability. Unfixed and deferred findings
+remain visible in the audit artifact and must be reviewed rather than added
+to blanket ignore rules.
+
 ## AWS trust bootstrap
 
 The global Terraform stack creates:

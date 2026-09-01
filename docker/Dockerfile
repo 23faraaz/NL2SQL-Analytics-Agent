@@ -10,7 +10,7 @@
 # a future dependency that DOES need compilation (e.g. a C extension) won't
 # require restructuring this file.
 # =============================================================================
-FROM python:3.12.13-slim@sha256:229a2c5bfa27522db7815ea81f9bed70af17ccb9de9fc7ad142b1877b5830d36 AS builder
+FROM python:3.12.13-slim-bookworm@sha256:4766d8b510c428e595d74b9cc5bbb2fae8e26316fffb4adc89908d79aacd58a2 AS builder
 
 WORKDIR /app
 
@@ -29,7 +29,7 @@ RUN pip install --no-cache-dir --require-hashes -r requirements.txt
 # =============================================================================
 # STAGE 2: runtime
 # =============================================================================
-FROM python:3.12.13-slim@sha256:229a2c5bfa27522db7815ea81f9bed70af17ccb9de9fc7ad142b1877b5830d36 AS runtime
+FROM python:3.12.13-slim-bookworm@sha256:4766d8b510c428e595d74b9cc5bbb2fae8e26316fffb4adc89908d79aacd58a2 AS runtime
 
 # OCI standard labels - the metadata a registry/scanner reads to know what
 # this image is, without needing to inspect layers.
@@ -38,10 +38,11 @@ LABEL org.opencontainers.image.title="nl2sql-agent" \
       org.opencontainers.image.source="https://github.com/23faraaz/NL2SQL-Analytics-Agent" \
       org.opencontainers.image.licenses="MIT"
 
-# curl: needed for HEALTHCHECK. tini: proper PID 1 / signal handling (see
-# note on ENTRYPOINT below - this is the part of the original ask that
-# actually needed fixing, not the CMD/ENTRYPOINT split itself).
-RUN apt-get update && apt-get install -y --no-install-recommends curl tini \
+# tini provides proper PID 1 and signal handling. The health check uses
+# Python's standard library so the runtime does not need curl and its
+# additional OS packages.
+RUN apt-get update && apt-get upgrade -y \
+    && apt-get install -y --no-install-recommends tini \
     && rm -rf /var/lib/apt/lists/*
 
 # Dedicated non-root user with no login shell and no home directory
@@ -95,7 +96,7 @@ USER appuser
 EXPOSE 8501
 
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
-    CMD curl -f http://localhost:8501/_stcore/health || exit 1
+    CMD python -c "import urllib.request; urllib.request.urlopen('http://localhost:8501/_stcore/health', timeout=4)"
 
 # WHY tini AS ENTRYPOINT:
 # The original ask was right to flag signal handling, but the actual gap
