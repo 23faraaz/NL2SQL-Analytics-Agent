@@ -1,0 +1,6 @@
+# Use the exact subject emitted by this repository's GitHub OIDC token.
+# Standard subject format for a main-branch job without a GitHub Environment:
+github_oidc_subject = "repo:OWNER/REPOSITORY:ref:refs/heads/main"
+
+# Repositories using GitHub immutable subject claims use owner/repository IDs:
+# github_oidc_subject = "repo:OWNER@OWNER_ID/REPOSITORY@REPOSITORY_ID:ref:refs/heads/main"
