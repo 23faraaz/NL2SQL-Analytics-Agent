@@ -1,0 +1,203 @@
+name: CD
+
+on:
+  workflow_run:
+    workflows:
+      - CI
+    types:
+      - completed
+
+permissions:
+  contents: read
+
+concurrency:
+  group: production-application
+  cancel-in-progress: false
+
+jobs:
+  release:
+    name: Validate CI release metadata
+    if: >-
+      github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.event == 'push' &&
+      github.event.workflow_run.head_branch == 'main'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      actions: read
+      contents: read
+    outputs:
+      commit_sha: ${{ steps.release.outputs.commit_sha }}
+      image_digest: ${{ steps.release.outputs.image_digest }}
+      image_uri: ${{ steps.release.outputs.image_uri }}
+
+    steps:
+      - name: Download metadata from successful CI
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN_ID: ${{ github.event.workflow_run.id }}
+          COMMIT_SHA: ${{ github.event.workflow_run.head_sha }}
+        run: >-
+          gh run download "${RUN_ID}"
+          --repo "${GITHUB_REPOSITORY}"
+          --name "build-metadata-${COMMIT_SHA}"
+          --dir release
+
+      - name: Validate immutable metadata
+        id: release
+        shell: bash
+        env:
+          EXPECTED_COMMIT: ${{ github.event.workflow_run.head_sha }}
+          EXPECTED_REGISTRY: ${{ vars.AWS_ACCOUNT_ID }}.dkr.ecr.${{ vars.AWS_REGION }}.amazonaws.com
+          EXPECTED_REPOSITORY: ${{ vars.AWS_ECR_REPOSITORY_NAME }}
+        run: |
+          set -euo pipefail
+          metadata_file="release/build-metadata.txt"
+          test -f "${metadata_file}"
+          commit_sha="$(sed -n 's/^commit_sha=//p' "${metadata_file}")"
+          image_digest="$(sed -n 's/^image_digest=//p' "${metadata_file}")"
+          image_uri="$(sed -n 's/^image_uri=//p' "${metadata_file}")"
+
+          [[ "${commit_sha}" == "${EXPECTED_COMMIT}" ]]
+          [[ "${commit_sha}" =~ ^[0-9a-f]{40}$ ]]
+          [[ "${image_digest}" =~ ^sha256:[0-9a-f]{64}$ ]]
+          [[ "${image_uri}" == "${EXPECTED_REGISTRY}/${EXPECTED_REPOSITORY}@${image_digest}" ]]
+
+          echo "commit_sha=${commit_sha}" >> "${GITHUB_OUTPUT}"
+          echo "image_digest=${image_digest}" >> "${GITHUB_OUTPUT}"
+          echo "image_uri=${image_uri}" >> "${GITHUB_OUTPUT}"
+
+  deploy:
+    name: Approve and release application
+    needs: release
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    environment: production
+    permissions:
+      contents: read
+      id-token: write
+
+    steps:
+      - name: Configure narrow application deployment credentials
+        uses: aws-actions/configure-aws-credentials@e6de054238d6b7531b4efff3b6587d9aade6a06c # v6.2.3
+        with:
+          role-to-assume: ${{ vars.AWS_APPLICATION_DEPLOY_ROLE_ARN }}
+          aws-region: ${{ vars.AWS_REGION }}
+          allowed-account-ids: ${{ vars.AWS_ACCOUNT_ID }}
+          role-session-name: application-release-${{ github.run_id }}
+
+      - name: Verify digest exists in ECR
+        env:
+          REPOSITORY: ${{ vars.AWS_ECR_REPOSITORY_NAME }}
+          DIGEST: ${{ needs.release.outputs.image_digest }}
+        run: >-
+          aws ecr describe-images
+          --repository-name "${REPOSITORY}"
+          --image-ids "imageDigest=${DIGEST}"
+
+      - name: Capture rollback target
+        id: previous
+        env:
+          CLUSTER: ${{ vars.ECS_CLUSTER_NAME }}
+          SERVICE: ${{ vars.ECS_SERVICE_NAME }}
+        run: |
+          previous="$(aws ecs describe-services --cluster "${CLUSTER}" --services "${SERVICE}" --query 'services[0].taskDefinition' --output text)"
+          [[ "${previous}" == arn:aws:ecs:*:task-definition/* ]]
+          echo "task_definition=${previous}" >> "${GITHUB_OUTPUT}"
+
+      - name: Register immutable task-definition revision
+        id: revision
+        env:
+          PREVIOUS: ${{ steps.previous.outputs.task_definition }}
+          IMAGE_URI: ${{ needs.release.outputs.image_uri }}
+          COMMIT_SHA: ${{ needs.release.outputs.commit_sha }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          aws ecs describe-task-definition --task-definition "${PREVIOUS}" --query taskDefinition > current-task-definition.json
+          jq --arg image "${IMAGE_URI}" '
+            .containerDefinitions |= map(if .name == "app" then .image = $image else . end)
+            | del(.taskDefinitionArn, .revision, .status, .requiresAttributes, .compatibilities, .registeredAt, .registeredBy)
+          ' current-task-definition.json > release-task-definition.json
+          revision="$(aws ecs register-task-definition \
+            --cli-input-json file://release-task-definition.json \
+            --tags "key=Project,value=nl2sql-agent" "key=CommitSHA,value=${COMMIT_SHA}" \
+            --query 'taskDefinition.taskDefinitionArn' --output text)"
+          echo "task_definition=${revision}" >> "${GITHUB_OUTPUT}"
+
+      - name: Deploy new revision
+        env:
+          CLUSTER: ${{ vars.ECS_CLUSTER_NAME }}
+          SERVICE: ${{ vars.ECS_SERVICE_NAME }}
+          REVISION: ${{ steps.revision.outputs.task_definition }}
+        run: >-
+          aws ecs update-service
+          --cluster "${CLUSTER}"
+          --service "${SERVICE}"
+          --task-definition "${REVISION}"
+
+      - name: Wait for ECS stability
+        env:
+          CLUSTER: ${{ vars.ECS_CLUSTER_NAME }}
+          SERVICE: ${{ vars.ECS_SERVICE_NAME }}
+        run: aws ecs wait services-stable --cluster "${CLUSTER}" --services "${SERVICE}"
+
+      - name: Require healthy ALB targets
+        env:
+          TARGET_GROUP: ${{ vars.ALB_TARGET_GROUP_ARN }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          health="$(aws elbv2 describe-target-health --target-group-arn "${TARGET_GROUP}" --query 'TargetHealthDescriptions[].TargetHealth.State' --output text)"
+          [[ -n "${health}" ]]
+          for state in ${health}; do [[ "${state}" == "healthy" ]]; done
+
+      - name: Smoke-test production health response
+        env:
+          HEALTH_URL: ${{ vars.PRODUCTION_HEALTH_URL }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          for attempt in {1..12}; do
+            if response="$(curl --fail --silent --show-error --connect-timeout 5 --max-time 10 "${HEALTH_URL}")" && [[ "${response}" == "ok" ]]; then
+              exit 0
+            fi
+            sleep 10
+          done
+          echo "Production health response did not equal 'ok'." >&2
+          exit 1
+
+      - name: Capture bounded failure diagnostics
+        if: failure()
+        continue-on-error: true
+        env:
+          CLUSTER: ${{ vars.ECS_CLUSTER_NAME }}
+          SERVICE: ${{ vars.ECS_SERVICE_NAME }}
+          TARGET_GROUP: ${{ vars.ALB_TARGET_GROUP_ARN }}
+          LOG_GROUP: ${{ vars.APPLICATION_LOG_GROUP_NAME }}
+        run: |
+          aws ecs describe-services --cluster "${CLUSTER}" --services "${SERVICE}" --query 'services[0].events[:10]'
+          stopped="$(aws ecs list-tasks --cluster "${CLUSTER}" --service-name "${SERVICE}" --desired-status STOPPED --max-results 10 --query taskArns --output text)"
+          if [[ -n "${stopped}" ]]; then aws ecs describe-tasks --cluster "${CLUSTER}" --tasks ${stopped}; fi
+          aws elbv2 describe-target-health --target-group-arn "${TARGET_GROUP}"
+          start_ms="$(( ($(date -u +%s) - 900) * 1000 ))"
+          aws logs filter-log-events --log-group-name "${LOG_GROUP}" --start-time "${start_ms}" --limit 100
+
+      - name: Roll back to previous task definition
+        if: failure() && steps.previous.outputs.task_definition != ''
+        env:
+          CLUSTER: ${{ vars.ECS_CLUSTER_NAME }}
+          SERVICE: ${{ vars.ECS_SERVICE_NAME }}
+          PREVIOUS: ${{ steps.previous.outputs.task_definition }}
+        run: |
+          aws ecs update-service --cluster "${CLUSTER}" --service "${SERVICE}" --task-definition "${PREVIOUS}"
+          aws ecs wait services-stable --cluster "${CLUSTER}" --services "${SERVICE}"
+
+      - name: Record successful release
+        if: success()
+        run: |
+          echo "### Production application released" >> "${GITHUB_STEP_SUMMARY}"
+          echo "- Commit: \`${{ needs.release.outputs.commit_sha }}\`" >> "${GITHUB_STEP_SUMMARY}"
+          echo "- Image: \`${{ needs.release.outputs.image_uri }}\`" >> "${GITHUB_STEP_SUMMARY}"
+          echo "- Task definition: \`${{ steps.revision.outputs.task_definition }}\`" >> "${GITHUB_STEP_SUMMARY}"
+          echo "- Rollback target: \`${{ steps.previous.outputs.task_definition }}\`" >> "${GITHUB_STEP_SUMMARY}"

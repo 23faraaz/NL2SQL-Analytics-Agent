@@ -79,6 +79,16 @@ resource "aws_lb" "app" {
   drop_invalid_header_fields = true
   enable_deletion_protection = var.enable_deletion_protection
 
+  dynamic "access_logs" {
+    for_each = var.access_logs_bucket == null ? [] : [1]
+
+    content {
+      bucket  = var.access_logs_bucket
+      prefix  = var.access_logs_prefix
+      enabled = true
+    }
+  }
+
   tags = merge(local.common_tags, {
     Name = "${var.environment}-nl2sql-alb"
   })
@@ -113,6 +123,52 @@ resource "aws_lb_listener" "http" {
   load_balancer_arn = aws_lb.app.arn
   port              = 80
   protocol          = "HTTP"
+
+  dynamic "default_action" {
+    for_each = var.certificate_arn == null ? [1] : []
+
+    content {
+      type             = "forward"
+      target_group_arn = aws_lb_target_group.app.arn
+    }
+  }
+
+  dynamic "default_action" {
+    for_each = var.certificate_arn == null ? [] : [1]
+
+    content {
+      type = "redirect"
+
+      redirect {
+        port        = "443"
+        protocol    = "HTTPS"
+        status_code = "HTTP_301"
+      }
+    }
+  }
+
+  tags = local.common_tags
+}
+
+resource "aws_vpc_security_group_ingress_rule" "alb_https" {
+  count = var.certificate_arn == null ? 0 : 1
+
+  security_group_id = aws_security_group.alb.id
+  description       = "Allow public HTTPS traffic to the ALB"
+  cidr_ipv4         = var.allowed_ingress_cidr
+  from_port         = 443
+  ip_protocol       = "tcp"
+  to_port           = 443
+}
+
+resource "aws_lb_listener" "https" {
+  count = var.certificate_arn == null ? 0 : 1
+
+  load_balancer_arn = aws_lb.app.arn
+  port              = 443
+  protocol          = "HTTPS"
+  certificate_arn   = var.certificate_arn
+  ssl_policy        = var.ssl_policy
 
   default_action {
     type             = "forward"

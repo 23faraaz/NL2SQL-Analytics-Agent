@@ -66,3 +66,29 @@ variable "enable_deletion_protection" {
   type        = bool
   default     = false
 }
+
+variable "certificate_arn" {
+  description = "Optional ACM certificate ARN; when set HTTP redirects to HTTPS"
+  type        = string
+  default     = null
+  nullable    = true
+}
+
+variable "ssl_policy" {
+  description = "TLS security policy for the HTTPS listener"
+  type        = string
+  default     = "ELBSecurityPolicy-TLS13-1-2-2021-06"
+}
+
+variable "access_logs_bucket" {
+  description = "Optional S3 bucket receiving ALB access logs"
+  type        = string
+  default     = null
+  nullable    = true
+}
+
+variable "access_logs_prefix" {
+  description = "Prefix used for ALB access log objects"
+  type        = string
+  default     = "alb"
+}

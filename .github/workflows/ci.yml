@@ -68,11 +68,47 @@ jobs:
       - name: Run unit tests
         run: pytest -m "not integration" --strict-markers
 
+  terraform:
+    name: Terraform validation and security
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+
+      - name: Set up Terraform
+        uses: hashicorp/setup-terraform@b9cd54a3c349d3f38e8881555d616ced269862dd # v3
+        with:
+          terraform_version: 1.15.0
+
+      - name: Check Terraform formatting
+        run: terraform fmt -check -recursive terraform
+
+      - name: Initialize and validate Terraform roots without remote backends
+        shell: bash
+        run: |
+          set -euo pipefail
+          for root in terraform/bootstrap terraform/global terraform/environments/staging terraform/environments/production; do
+            terraform -chdir="${root}" init -backend=false
+            terraform -chdir="${root}" validate
+          done
+
+      - name: Scan Terraform for high and critical findings
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          scan-type: config
+          scan-ref: terraform
+          severity: HIGH,CRITICAL
+          exit-code: "1"
+          trivy-version: v0.70.0
+
   container:
     name: Build and scan exact image
     needs:
       - lint-format
       - unit-tests
+      - terraform
     runs-on: ubuntu-24.04
     timeout-minutes: 25
 

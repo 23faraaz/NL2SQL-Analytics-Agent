@@ -22,3 +22,13 @@ output "ci_publish_role_arn" {
   description = "ARN assumed by trusted CI to publish application images"
   value       = module.ci_publish_role.role_arn
 }
+
+output "terraform_plan_role_arn" {
+  description = "Read-only role assumed to create a production Terraform plan"
+  value       = module.infrastructure_roles.plan_role_arn
+}
+
+output "terraform_apply_role_arn" {
+  description = "Production-environment role assumed after approval"
+  value       = module.infrastructure_roles.apply_role_arn
+}
