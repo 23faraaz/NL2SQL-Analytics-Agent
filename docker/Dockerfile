@@ -10,7 +10,7 @@
 # a future dependency that DOES need compilation (e.g. a C extension) won't
 # require restructuring this file.
 # =============================================================================
-FROM python:3.12.13-slim AS builder
+FROM python:3.12.13-slim@sha256:229a2c5bfa27522db7815ea81f9bed70af17ccb9de9fc7ad142b1877b5830d36 AS builder
 
 WORKDIR /app
 
@@ -23,20 +23,19 @@ RUN python -m venv /opt/venv
 
 ENV PATH="/opt/venv/bin:$PATH"
 
-RUN pip install --no-cache-dir --upgrade pip && \
-    pip install --no-cache-dir -r requirements.txt
+RUN pip install --no-cache-dir --require-hashes -r requirements.txt
 
 
 # =============================================================================
 # STAGE 2: runtime
 # =============================================================================
-FROM python:3.12.13-slim AS runtime
+FROM python:3.12.13-slim@sha256:229a2c5bfa27522db7815ea81f9bed70af17ccb9de9fc7ad142b1877b5830d36 AS runtime
 
 # OCI standard labels - the metadata a registry/scanner reads to know what
 # this image is, without needing to inspect layers.
 LABEL org.opencontainers.image.title="nl2sql-agent" \
       org.opencontainers.image.description="NL2SQL analytics agent - Streamlit + Gemini + Postgres" \
-      org.opencontainers.image.source="https://github.com/YOUR_USERNAME/nl2sql-agent" \
+      org.opencontainers.image.source="https://github.com/23faraaz/NL2SQL-Analytics-Agent" \
       org.opencontainers.image.licenses="MIT"
 
 # curl: needed for HEALTHCHECK. tini: proper PID 1 / signal handling (see
@@ -61,6 +60,7 @@ WORKDIR /app
 COPY --from=builder /opt/venv /opt/venv
 
 COPY app/ ./app/
+COPY .streamlit/config.toml ./.streamlit/config.toml
 
 # PATH: ensures the copied virtual environment is used.
 #

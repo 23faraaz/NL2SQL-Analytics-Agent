@@ -1,0 +1,14 @@
+[tool.black]
+line-length = 88
+target-version = ["py311", "py312"]
+
+[tool.ruff]
+line-length = 88
+target-version = "py311"
+extend-exclude = [".terraform"]
+
+[tool.ruff.lint]
+# Keep the CI contract explicit so Ruff upgrades cannot silently enable a
+# different policy. Import sorting and broader modernization rules can be
+# adopted separately with a reviewed cleanup change.
+select = ["E4", "E7", "E9", "F"]

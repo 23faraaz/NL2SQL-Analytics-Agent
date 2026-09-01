@@ -9,13 +9,13 @@
 # faker, or the ETL/loader code at runtime, and this image never needs
 # streamlit or the Gemini client.
 # =============================================================================
-FROM python:3.12.13-slim AS init
+FROM python:3.12.13-slim@sha256:229a2c5bfa27522db7815ea81f9bed70af17ccb9de9fc7ad142b1877b5830d36 AS init
 
 WORKDIR /app
 
 COPY requirements-etl.txt .
 
-RUN pip install --no-cache-dir -r requirements-etl.txt
+RUN pip install --no-cache-dir --require-hashes -r requirements-etl.txt
 
 COPY etl/ ./etl/
 COPY scripts/ ./scripts/
