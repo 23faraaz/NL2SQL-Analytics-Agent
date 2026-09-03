@@ -156,6 +156,12 @@ Before completion, verify:
 
 ## 9. Completion evidence
 
+Do not use **Re-run all jobs** on an already published CI commit to trigger a
+release. Container rebuilds are not guaranteed to be byte-for-byte identical,
+and the immutable ECR tag guard correctly rejects a different image for the
+same commit tag. Trigger release verification with a new reviewed commit on
+`main`; CD will then consume that successful CI run's recorded registry digest.
+
 Record:
 
 ```text
