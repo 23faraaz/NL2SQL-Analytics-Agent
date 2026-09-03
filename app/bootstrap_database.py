@@ -4,11 +4,14 @@ from __future__ import annotations
 
 import logging
 import os
+from hashlib import sha256
+from pathlib import Path
 
 import psycopg2
 from psycopg2 import sql
 
 logger = logging.getLogger(__name__)
+DEFAULT_MIGRATIONS_DIR = Path(__file__).resolve().parents[1] / "sql" / "migrations"
 
 
 def required_environment(name: str) -> str:
@@ -16,6 +19,51 @@ def required_environment(name: str) -> str:
     if not value:
         raise RuntimeError(f"Required environment variable {name} is not set")
     return value
+
+
+def discover_migrations(directory: Path) -> list[Path]:
+    migrations = sorted(directory.glob("[0-9][0-9][0-9]_*.sql"))
+    if not migrations:
+        raise RuntimeError(f"No production migrations found in {directory}")
+    return migrations
+
+
+def apply_migrations(connection, directory: Path) -> None:
+    """Apply each immutable migration once and reject checksum drift."""
+    with connection.cursor() as cursor:
+        cursor.execute(
+            "SELECT pg_advisory_xact_lock(hashtext(%s))", ("nl2sql-migrations",)
+        )
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS public.nl2sql_schema_migrations (
+                version TEXT PRIMARY KEY,
+                checksum TEXT NOT NULL,
+                applied_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+            )
+            """)
+        cursor.execute("SELECT version, checksum FROM public.nl2sql_schema_migrations")
+        applied = dict(cursor.fetchall())
+
+        for migration in discover_migrations(directory):
+            content = migration.read_bytes()
+            checksum = sha256(content).hexdigest()
+            previous_checksum = applied.get(migration.name)
+            if previous_checksum is not None:
+                if previous_checksum != checksum:
+                    raise RuntimeError(
+                        f"Applied migration checksum changed: {migration.name}"
+                    )
+                continue
+
+            logger.info("Applying database migration %s", migration.name)
+            cursor.execute(content.decode("utf-8-sig"))
+            cursor.execute(
+                """
+                INSERT INTO public.nl2sql_schema_migrations (version, checksum)
+                VALUES (%s, %s)
+                """,
+                (migration.name, checksum),
+            )
 
 
 def bootstrap_application_role(connection, username: str, password: str) -> None:
@@ -87,6 +135,8 @@ def main() -> None:
         sslmode="require",
     )
     try:
+        migrations_dir = Path(os.getenv("MIGRATIONS_DIR", DEFAULT_MIGRATIONS_DIR))
+        apply_migrations(connection, migrations_dir)
         bootstrap_application_role(
             connection,
             required_environment("DB_APP_USER"),

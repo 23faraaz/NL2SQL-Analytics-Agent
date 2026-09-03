@@ -47,8 +47,8 @@ sequence and completion checklist.
 - [ ] Restrict database access to the ECS task security group.
 - [x] Run the application-role bootstrap as a single-purpose task before
   service activation; keep destructive local schema loaders out of production.
-- [ ] Add forward-only, versioned production schema migrations before loading
-  production data.
+- [x] Add forward-only, versioned production schema migrations with immutable
+  checksums before loading production data.
 - [ ] Prove backup restoration and backward-compatible rollback.
 
 ## Step 6 — ECS runtime
