@@ -126,6 +126,13 @@ The workflow returns the service to the prior task definition and waits for
 stability. The workflow remains failed so the release is not mistaken for a
 success.
 
+Before approving a release, confirm that the ECS service references an ACTIVE
+task-definition revision. Terraform-managed application and migration task
+definitions use `skip_destroy = true` so a later infrastructure apply does not
+deregister a revision that CD may need as its rollback target. CD validates the
+rollback revision before registering or deploying a replacement, and it only
+attempts rollback after the service update step has succeeded.
+
 ## 7. Required rollback exercise
 
 1. Build a deliberately unhealthy test image through the same CI process on a
