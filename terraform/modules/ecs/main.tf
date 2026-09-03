@@ -153,6 +153,34 @@ resource "aws_iam_role" "migration_task" {
   tags               = local.common_tags
 }
 
+resource "aws_iam_role" "importer_task" {
+  name               = "${local.service_name}-importer-task"
+  assume_role_policy = data.aws_iam_policy_document.task_assume.json
+  tags               = local.common_tags
+}
+
+data "aws_iam_policy_document" "importer_task" {
+  statement {
+    sid       = "ReadVersionedDatasetRelease"
+    effect    = "Allow"
+    actions   = ["s3:GetObject", "s3:GetObjectVersion"]
+    resources = ["${var.dataset_bucket_arn}/releases/*"]
+  }
+
+  statement {
+    sid       = "DecryptDatasetRelease"
+    effect    = "Allow"
+    actions   = ["kms:Decrypt"]
+    resources = [var.dataset_kms_key_arn]
+  }
+}
+
+resource "aws_iam_role_policy" "importer_task" {
+  name   = "${local.service_name}-importer-read-dataset"
+  role   = aws_iam_role.importer_task.id
+  policy = data.aws_iam_policy_document.importer_task.json
+}
+
 resource "aws_ecs_task_definition" "app" {
   skip_destroy             = true
   family                   = local.service_name
@@ -260,6 +288,55 @@ resource "aws_ecs_task_definition" "migration" {
         awslogs-group         = aws_cloudwatch_log_group.app.name
         awslogs-region        = var.aws_region
         awslogs-stream-prefix = "migration"
+      }
+    }
+  }])
+
+  tags = local.common_tags
+}
+
+resource "aws_ecs_task_definition" "importer" {
+  skip_destroy             = true
+  family                   = "${local.service_name}-importer"
+  requires_compatibilities = ["FARGATE"]
+  network_mode             = "awsvpc"
+  cpu                      = "1024"
+  memory                   = "4096"
+  execution_role_arn       = aws_iam_role.migration_execution.arn
+  task_role_arn            = aws_iam_role.importer_task.arn
+
+  runtime_platform {
+    cpu_architecture        = "X86_64"
+    operating_system_family = "LINUX"
+  }
+
+  ephemeral_storage {
+    size_in_gib = 25
+  }
+
+  container_definitions = jsonencode([{
+    name      = "olist-importer"
+    image     = var.importer_image_uri
+    essential = true
+    command   = ["sh", "-c", "echo 'Import parameters must be supplied by the approved workflow' >&2; exit 2"]
+
+    environment = [
+      { name = "DB_HOST", value = var.database_host },
+      { name = "DB_PORT", value = tostring(var.database_port) },
+      { name = "DB_NAME", value = var.database_name },
+    ]
+
+    secrets = [
+      { name = "DB_USER", valueFrom = "${var.database_master_secret_arn}:username::" },
+      { name = "DB_PASSWORD", valueFrom = "${var.database_master_secret_arn}:password::" },
+    ]
+
+    logConfiguration = {
+      logDriver = "awslogs"
+      options = {
+        awslogs-group         = aws_cloudwatch_log_group.app.name
+        awslogs-region        = var.aws_region
+        awslogs-stream-prefix = "importer"
       }
     }
   }])

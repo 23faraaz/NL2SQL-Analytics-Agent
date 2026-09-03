@@ -232,6 +232,7 @@ data "aws_iam_policy_document" "apply" {
       "logs:TagResource",
       "kms:CreateAlias",
       "kms:CreateKey",
+      "kms:DeleteAlias",
       "kms:DescribeKey",
       "kms:DisableKey",
       "kms:EnableKeyRotation",
@@ -347,7 +348,7 @@ data "aws_iam_policy_document" "apply" {
   }
 
   statement {
-    sid    = "ManageALBAccessLogBucket"
+    sid    = "ManageApplicationBuckets"
     effect = "Allow"
     actions = [
       "s3:CreateBucket",
@@ -355,12 +356,14 @@ data "aws_iam_policy_document" "apply" {
       "s3:GetBucketPolicy",
       "s3:GetBucketPublicAccessBlock",
       "s3:GetBucketTagging",
+      "s3:GetBucketVersioning",
       "s3:GetEncryptionConfiguration",
       "s3:GetLifecycleConfiguration",
       "s3:ListBucket",
       "s3:PutBucketPolicy",
       "s3:PutBucketPublicAccessBlock",
       "s3:PutBucketTagging",
+      "s3:PutBucketVersioning",
       "s3:PutEncryptionConfiguration",
       "s3:PutLifecycleConfiguration",
       "s3:DeleteBucketPolicy",
@@ -371,6 +374,8 @@ data "aws_iam_policy_document" "apply" {
     resources = [
       "arn:aws:s3:::production-nl2sql-alb-logs-${data.aws_caller_identity.current.account_id}",
       "arn:aws:s3:::production-nl2sql-alb-logs-${data.aws_caller_identity.current.account_id}/*",
+      "arn:aws:s3:::production-nl2sql-datasets-${data.aws_caller_identity.current.account_id}",
+      "arn:aws:s3:::production-nl2sql-datasets-${data.aws_caller_identity.current.account_id}/*",
     ]
   }
 

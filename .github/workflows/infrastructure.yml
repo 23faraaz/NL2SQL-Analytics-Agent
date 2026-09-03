@@ -12,6 +12,10 @@ on:
         required: true
         default: false
         type: boolean
+      importer_image_uri:
+        description: CI-verified importer ECR image URI qualified by digest
+        required: true
+        type: string
 
 permissions:
   contents: read
@@ -25,6 +29,7 @@ env:
   TF_INPUT: "false"
   TF_WORKING_DIR: terraform/environments/production
   TF_VAR_image_uri: ${{ inputs.image_uri }}
+  TF_VAR_importer_image_uri: ${{ inputs.importer_image_uri }}
   TF_VAR_public_subnets: ${{ vars.TF_PRODUCTION_PUBLIC_SUBNETS }}
   TF_VAR_private_subnets: ${{ vars.TF_PRODUCTION_PRIVATE_SUBNETS }}
   TF_VAR_nat_gateway_subnet_key: ${{ vars.TF_PRODUCTION_NAT_GATEWAY_SUBNET_KEY }}

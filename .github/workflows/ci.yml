@@ -125,6 +125,15 @@ jobs:
           image-tag: sha-${{ github.sha }}
           platform: linux/amd64
 
+      - name: Build traceable importer image
+        id: importer
+        uses: ./.github/actions/docker-build
+        with:
+          image-name: nl2sql-agent-importer
+          image-tag: sha-${{ github.sha }}
+          platform: linux/amd64
+          dockerfile: docker/Dockerfile.etl
+
       - name: Save Trivy audit report
         uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
         with:
@@ -147,6 +156,17 @@ jobs:
           exit-code: "1"
           skip-setup-trivy: true
 
+      - name: Enforce importer high and critical vulnerability gate
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          image-ref: ${{ steps.importer.outputs.image-ref }}
+          version: v0.70.0
+          format: table
+          severity: HIGH,CRITICAL
+          ignore-unfixed: true
+          exit-code: "1"
+          skip-setup-trivy: true
+
       - name: Upload Trivy audit report
         if: ${{ always() && hashFiles('trivy-results.sarif') != '' }}
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
@@ -158,14 +178,18 @@ jobs:
 
       - name: Export the exact scanned image
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-        run: docker save --output nl2sql-agent.tar "${{ steps.image.outputs.image-ref }}"
+        run: |
+          docker save --output nl2sql-agent.tar "${{ steps.image.outputs.image-ref }}"
+          docker save --output nl2sql-agent-importer.tar "${{ steps.importer.outputs.image-ref }}"
 
       - name: Transfer exact image to trusted publishing job
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: scanned-image-${{ github.sha }}
-          path: nl2sql-agent.tar
+          path: |
+            nl2sql-agent.tar
+            nl2sql-agent-importer.tar
           if-no-files-found: error
           compression-level: 0
           retention-days: 1
@@ -187,7 +211,9 @@ jobs:
           name: scanned-image-${{ github.sha }}
 
       - name: Load scanned image
-        run: docker load --input nl2sql-agent.tar
+        run: |
+          docker load --input nl2sql-agent.tar
+          docker load --input nl2sql-agent-importer.tar
 
       - name: Configure short-lived AWS credentials
         uses: aws-actions/configure-aws-credentials@e6de054238d6b7531b4efff3b6587d9aade6a06c # v6.2.3
@@ -255,6 +281,41 @@ jobs:
           echo "digest=${digest}" >> "${GITHUB_OUTPUT}"
           echo "image-uri=${image_uri}" >> "${GITHUB_OUTPUT}"
 
+      - name: Publish or verify immutable importer image
+        id: publish-importer
+        shell: bash
+        env:
+          REGISTRY: ${{ steps.ecr.outputs.registry }}
+          REPOSITORY: ${{ vars.AWS_ECR_REPOSITORY_NAME }}
+          IMAGE_TAG: importer-sha-${{ github.sha }}
+        run: |
+          set -euo pipefail
+          local_ref="nl2sql-agent-importer:sha-${GITHUB_SHA}"
+          remote_ref="${REGISTRY}/${REPOSITORY}:${IMAGE_TAG}"
+          local_id="$(docker image inspect --format='{{.Id}}' "${local_ref}")"
+          set +e
+          existing_output="$(aws ecr describe-images --repository-name "${REPOSITORY}" --image-ids "imageTag=${IMAGE_TAG}" --query 'imageDetails[0].imageDigest' --output text 2>&1)"
+          describe_status=$?
+          set -e
+          if [[ "${describe_status}" -eq 0 ]]; then
+            existing_digest="${existing_output}"
+          elif grep -q 'ImageNotFoundException' <<<"${existing_output}"; then
+            existing_digest=""
+          else
+            printf '%s\n' "${existing_output}" >&2
+            exit "${describe_status}"
+          fi
+          if [[ -n "${existing_digest}" && "${existing_digest}" != "None" ]]; then
+            docker pull "${remote_ref}"
+            [[ "${local_id}" == "$(docker image inspect --format='{{.Id}}' "${remote_ref}")" ]]
+          else
+            docker tag "${local_ref}" "${remote_ref}"
+            docker push "${remote_ref}"
+          fi
+          digest="$(aws ecr describe-images --repository-name "${REPOSITORY}" --image-ids "imageTag=${IMAGE_TAG}" --query 'imageDetails[0].imageDigest' --output text)"
+          echo "digest=${digest}" >> "${GITHUB_OUTPUT}"
+          echo "image-uri=${REGISTRY}/${REPOSITORY}@${digest}" >> "${GITHUB_OUTPUT}"
+
       - name: Record registry-grade build metadata
         shell: bash
         run: |
@@ -263,12 +324,16 @@ jobs:
             "workflow_run_id=${GITHUB_RUN_ID}" \
             "image_digest=${{ steps.publish.outputs.digest }}" \
             "image_uri=${{ steps.publish.outputs.image-uri }}" \
+            "importer_image_digest=${{ steps.publish-importer.outputs.digest }}" \
+            "importer_image_uri=${{ steps.publish-importer.outputs.image-uri }}" \
             > build-metadata.txt
           {
             echo "### Published application image"
             echo "- Commit: \`${GITHUB_SHA}\`"
             echo "- Digest: \`${{ steps.publish.outputs.digest }}\`"
             echo "- Deployable image: \`${{ steps.publish.outputs.image-uri }}\`"
+            echo "- Importer digest: \`${{ steps.publish-importer.outputs.digest }}\`"
+            echo "- Importer image: \`${{ steps.publish-importer.outputs.image-uri }}\`"
           } >> "${GITHUB_STEP_SUMMARY}"
 
       - name: Upload deployment metadata

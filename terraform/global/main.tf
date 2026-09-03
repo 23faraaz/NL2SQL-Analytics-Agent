@@ -61,6 +61,19 @@ resource "aws_ecr_lifecycle_policy" "app" {
         action = {
           type = "expire"
         }
+      },
+      {
+        rulePriority = 3
+        description  = "Keep the latest 10 importer images"
+        selection = {
+          tagStatus      = "tagged"
+          tagPatternList = ["importer-sha-*"]
+          countType      = "imageCountMoreThan"
+          countNumber    = 10
+        }
+        action = {
+          type = "expire"
+        }
       }
     ]
   })

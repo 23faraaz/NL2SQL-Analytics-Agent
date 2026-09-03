@@ -18,6 +18,26 @@ output "database_migration_task_definition_arn" {
   description = "One-off database bootstrap task definition"
 }
 
+output "dataset_release_bucket_name" {
+  value       = aws_s3_bucket.dataset_releases.id
+  description = "Private versioned Olist dataset release bucket"
+}
+
+output "dataset_release_kms_key_arn" {
+  value       = aws_kms_key.dataset_releases.arn
+  description = "Customer-managed KMS key encrypting Olist dataset releases"
+}
+
+output "dataset_importer_task_definition_arn" {
+  value       = module.ecs.importer_task_definition_arn
+  description = "One-off Olist importer task definition"
+}
+
+output "data_import_role_arn" {
+  value       = aws_iam_role.data_import.arn
+  description = "GitHub OIDC role restricted to the production importer task"
+}
+
 output "ecs_private_subnet_ids" {
   value       = module.networking.private_subnet_ids
   description = "Private subnets used by application and migration tasks"

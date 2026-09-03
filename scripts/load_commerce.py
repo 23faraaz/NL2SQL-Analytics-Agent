@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import csv
+import json
 import os
 import sys
 from pathlib import Path
@@ -8,6 +9,7 @@ from pathlib import Path
 import psycopg2
 from psycopg2.extensions import connection as PostgreSQLConnection
 
+from etl.config import PROCESSED_DATA_DIR
 from etl.logging_config import get_logger
 
 logger = get_logger(__name__)
@@ -19,9 +21,8 @@ SCHEMA_FILES = [
     PROJECT_ROOT / "sql" / "001_schema.sql",
     PROJECT_ROOT / "sql" / "002_views.sql",
     PROJECT_ROOT / "sql" / "003_indexes.sql",
+    PROJECT_ROOT / "sql" / "migrations" / "004_dataset_imports.sql",
 ]
-
-PROCESSED_DATA_DIR = PROJECT_ROOT / "data" / "processed"
 
 # FK-safe load order. product_variants and order_items are populated by
 # S4b synthetic augmentation and will not exist as processed CSVs until
@@ -245,7 +246,7 @@ def get_table_row_count(
     Return the number of rows currently stored in a commerce table.
     """
 
-    query = f"SELECT COUNT(*) " f"FROM commerce.{table_name}"
+    query = f"SELECT COUNT(*) FROM commerce.{table_name}"
 
     with connection.cursor() as cursor:
         cursor.execute(query)
@@ -396,7 +397,12 @@ def verify_foreign_key_integrity(
     logger.info("Commerce relationship verification completed successfully")
 
 
-def load_commerce() -> None:
+def load_commerce(
+    *,
+    dataset_id: str | None = None,
+    source_version: str | None = None,
+    require_empty: bool = False,
+) -> None:
     """
     Create the canonical commerce schema and populate it with whichever
     processed CSVs are currently available.
@@ -413,6 +419,51 @@ def load_commerce() -> None:
         connection.autocommit = False
 
         execute_schema(connection)
+
+        if dataset_id is not None:
+            if len(dataset_id) != 64 or any(
+                character not in "0123456789abcdef" for character in dataset_id
+            ):
+                raise ValueError("dataset_id must be a lowercase SHA-256 value")
+            if not source_version:
+                raise ValueError("source_version is required for a production import")
+
+            with connection.cursor() as cursor:
+                cursor.execute(
+                    "SELECT pg_advisory_xact_lock(hashtext(%s))",
+                    ("nl2sql-dataset-import",),
+                )
+                cursor.execute(
+                    "SELECT 1 FROM public.nl2sql_dataset_imports WHERE dataset_id = %s",
+                    (dataset_id,),
+                )
+                if cursor.fetchone() is not None:
+                    connection.rollback()
+                    logger.info(
+                        "Dataset %s was already imported; no changes made", dataset_id
+                    )
+                    return
+
+        if require_empty:
+            if set(tables_to_load) != set(COMMERCE_TABLES):
+                missing = sorted(set(COMMERCE_TABLES) - set(tables_to_load))
+                raise ValueError(
+                    "Production import requires every processed table; missing: "
+                    + ", ".join(missing)
+                )
+            existing_counts = {
+                table_name: get_table_row_count(connection, table_name)
+                for table_name in COMMERCE_TABLES
+            }
+            nonempty = {
+                table_name: count
+                for table_name, count in existing_counts.items()
+                if count > 0
+            }
+            if nonempty:
+                raise ValueError(
+                    "Production commerce tables are not empty; refusing replacement import"
+                )
 
         expected_row_counts: dict[str, int] = {}
 
@@ -433,6 +484,17 @@ def load_commerce() -> None:
             connection,
             tables_to_load,
         )
+
+        if dataset_id is not None and source_version is not None:
+            with connection.cursor() as cursor:
+                cursor.execute(
+                    """
+                    INSERT INTO public.nl2sql_dataset_imports
+                        (dataset_id, source_version, table_row_counts)
+                    VALUES (%s, %s, %s::jsonb)
+                    """,
+                    (dataset_id, source_version, json.dumps(expected_row_counts)),
+                )
 
         connection.commit()
 

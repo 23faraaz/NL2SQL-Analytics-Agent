@@ -28,6 +28,16 @@ output "migration_task_definition_arn" {
   description = "One-off database bootstrap task definition"
 }
 
+output "importer_task_definition_arn" {
+  value       = aws_ecs_task_definition.importer.arn
+  description = "One-off Olist importer task definition"
+}
+
+output "importer_task_role_arn" {
+  value       = aws_iam_role.importer_task.arn
+  description = "Task role restricted to versioned dataset reads"
+}
+
 output "migration_execution_role_arn" {
   value       = aws_iam_role.migration_execution.arn
   description = "Execution role restricted to database bootstrap secrets"

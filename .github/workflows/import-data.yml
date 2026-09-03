@@ -1,0 +1,132 @@
+name: Import production Olist data
+
+on:
+  workflow_dispatch:
+    inputs:
+      dataset_id:
+        description: Dataset ID printed by scripts.package_olist
+        required: true
+        type: string
+      bundle_sha256:
+        description: SHA-256 of the uploaded zip object
+        required: true
+        type: string
+      object_key:
+        description: S3 key below releases/
+        required: true
+        type: string
+      object_version:
+        description: Immutable S3 object version ID
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: production-data-import
+  cancel-in-progress: false
+
+jobs:
+  import:
+    name: Approve and import Olist dataset
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    environment: production
+    permissions:
+      contents: read
+      id-token: write
+
+    steps:
+      - name: Validate immutable import inputs
+        shell: bash
+        env:
+          DATASET_ID: ${{ inputs.dataset_id }}
+          BUNDLE_SHA256: ${{ inputs.bundle_sha256 }}
+          OBJECT_KEY: ${{ inputs.object_key }}
+          OBJECT_VERSION: ${{ inputs.object_version }}
+        run: |
+          set -euo pipefail
+          [[ "${DATASET_ID}" =~ ^[0-9a-f]{64}$ ]]
+          [[ "${BUNDLE_SHA256}" =~ ^[0-9a-f]{64}$ ]]
+          [[ "${OBJECT_KEY}" =~ ^releases/[a-zA-Z0-9._/-]+$ ]]
+          [[ "${OBJECT_KEY}" != *..* ]]
+          [[ "${OBJECT_VERSION}" =~ ^[A-Za-z0-9._~+/=-]+$ ]]
+
+      - name: Configure narrow import credentials
+        uses: aws-actions/configure-aws-credentials@e6de054238d6b7531b4efff3b6587d9aade6a06c # v6.2.3
+        with:
+          role-to-assume: ${{ vars.AWS_DATA_IMPORT_ROLE_ARN }}
+          aws-region: ${{ vars.AWS_REGION }}
+          allowed-account-ids: ${{ vars.AWS_ACCOUNT_ID }}
+          role-session-name: data-import-${{ github.run_id }}
+
+      - name: Verify exact S3 object version
+        env:
+          BUCKET: ${{ vars.DATASET_BUCKET_NAME }}
+          OBJECT_KEY: ${{ inputs.object_key }}
+          OBJECT_VERSION: ${{ inputs.object_version }}
+        run: >-
+          aws s3api head-object
+          --bucket "${BUCKET}"
+          --key "${OBJECT_KEY}"
+          --version-id "${OBJECT_VERSION}"
+
+      - name: Run one-off importer task
+        id: task
+        shell: bash
+        env:
+          CLUSTER: ${{ vars.ECS_CLUSTER_NAME }}
+          TASK_DEFINITION: ${{ vars.DATASET_IMPORTER_TASK_DEFINITION_ARN }}
+          SUBNETS: ${{ vars.ECS_PRIVATE_SUBNET_IDS }}
+          SECURITY_GROUP: ${{ vars.ECS_TASK_SECURITY_GROUP_ID }}
+          BUCKET: ${{ vars.DATASET_BUCKET_NAME }}
+          OBJECT_KEY: ${{ inputs.object_key }}
+          OBJECT_VERSION: ${{ inputs.object_version }}
+          BUNDLE_SHA256: ${{ inputs.bundle_sha256 }}
+          DATASET_ID: ${{ inputs.dataset_id }}
+        run: |
+          set -euo pipefail
+          overrides="$(jq -n \
+            --arg bucket "${BUCKET}" \
+            --arg key "${OBJECT_KEY}" \
+            --arg version "${OBJECT_VERSION}" \
+            --arg bundle_sha "${BUNDLE_SHA256}" \
+            --arg dataset_id "${DATASET_ID}" \
+            '{containerOverrides:[{
+              name:"olist-importer",
+              command:["python","-m","scripts.run_s3_import"],
+              environment:[
+                {name:"DATASET_BUCKET",value:$bucket},
+                {name:"DATASET_OBJECT_KEY",value:$key},
+                {name:"DATASET_OBJECT_VERSION",value:$version},
+                {name:"DATASET_BUNDLE_SHA256",value:$bundle_sha},
+                {name:"DATASET_ID",value:$dataset_id}
+              ]
+            }]}')"
+          task_arn="$(aws ecs run-task \
+            --cluster "${CLUSTER}" \
+            --task-definition "${TASK_DEFINITION}" \
+            --launch-type FARGATE \
+            --network-configuration "awsvpcConfiguration={subnets=${SUBNETS},securityGroups=[${SECURITY_GROUP}],assignPublicIp=DISABLED}" \
+            --overrides "${overrides}" \
+            --query 'tasks[0].taskArn' --output text)"
+          [[ "${task_arn}" == arn:aws:ecs:*:task/* ]]
+          echo "task_arn=${task_arn}" >> "${GITHUB_OUTPUT}"
+          aws ecs wait tasks-stopped --cluster "${CLUSTER}" --tasks "${task_arn}"
+
+      - name: Require successful import
+        env:
+          CLUSTER: ${{ vars.ECS_CLUSTER_NAME }}
+          TASK_ARN: ${{ steps.task.outputs.task_arn }}
+        run: |
+          exit_code="$(aws ecs describe-tasks --cluster "${CLUSTER}" --tasks "${TASK_ARN}" --query 'tasks[0].containers[?name==`olist-importer`].exitCode | [0]' --output text)"
+          [[ "${exit_code}" == "0" ]]
+
+      - name: Record import evidence
+        run: |
+          echo "### Olist dataset imported" >> "${GITHUB_STEP_SUMMARY}"
+          echo "- Dataset ID: \`${{ inputs.dataset_id }}\`" >> "${GITHUB_STEP_SUMMARY}"
+          echo "- S3 version: \`${{ inputs.object_version }}\`" >> "${GITHUB_STEP_SUMMARY}"
+          echo "- Task: \`${{ steps.task.outputs.task_arn }}\`" >> "${GITHUB_STEP_SUMMARY}"
