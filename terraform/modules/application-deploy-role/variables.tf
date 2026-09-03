@@ -2,7 +2,6 @@ variable "oidc_provider_arn" { type = string }
 variable "github_production_subject" { type = string }
 variable "cluster_arn" { type = string }
 variable "service_arn" { type = string }
-variable "target_group_arn" { type = string }
 variable "ecr_repository_arn" { type = string }
 variable "task_execution_role_arn" { type = string }
 variable "task_role_arn" { type = string }
