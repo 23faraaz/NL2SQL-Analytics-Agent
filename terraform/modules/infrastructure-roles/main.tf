@@ -147,6 +147,8 @@ data "aws_iam_policy_document" "apply" {
       "application-autoscaling:DescribeScalingPolicies",
       "application-autoscaling:PutScalingPolicy",
       "application-autoscaling:RegisterScalableTarget",
+      "application-autoscaling:TagResource",
+      "application-autoscaling:UntagResource",
       "budgets:ModifyBudget",
       "budgets:CreateBudget",
       "budgets:DeleteBudget",
