@@ -61,6 +61,7 @@ WORKDIR /app
 COPY --from=builder /opt/venv /opt/venv
 
 COPY app/ ./app/
+COPY sql/migrations/ ./sql/migrations/
 COPY .streamlit/config.toml ./.streamlit/config.toml
 
 # PATH: ensures the copied virtual environment is used.
