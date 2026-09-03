@@ -23,6 +23,11 @@ output "dataset_release_bucket_name" {
   description = "Private versioned Olist dataset release bucket"
 }
 
+output "dataset_release_kms_key_arn" {
+  value       = aws_kms_key.dataset_releases.arn
+  description = "Customer-managed KMS key encrypting Olist dataset releases"
+}
+
 output "dataset_importer_task_definition_arn" {
   value       = module.ecs.importer_task_definition_arn
   description = "One-off Olist importer task definition"

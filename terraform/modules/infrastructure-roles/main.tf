@@ -232,6 +232,7 @@ data "aws_iam_policy_document" "apply" {
       "logs:TagResource",
       "kms:CreateAlias",
       "kms:CreateKey",
+      "kms:DeleteAlias",
       "kms:DescribeKey",
       "kms:DisableKey",
       "kms:EnableKeyRotation",

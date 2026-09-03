@@ -130,6 +130,7 @@ module "ecs" {
   database_master_secret_arn = module.database.master_secret_arn
   application_secret_arn     = var.application_secret_arn
   dataset_bucket_arn         = aws_s3_bucket.dataset_releases.arn
+  dataset_kms_key_arn        = aws_kms_key.dataset_releases.arn
   desired_count              = var.desired_count
   minimum_count              = var.desired_count
   log_retention_days         = var.log_retention_days

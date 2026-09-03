@@ -166,6 +166,13 @@ data "aws_iam_policy_document" "importer_task" {
     actions   = ["s3:GetObject", "s3:GetObjectVersion"]
     resources = ["${var.dataset_bucket_arn}/releases/*"]
   }
+
+  statement {
+    sid       = "DecryptDatasetRelease"
+    effect    = "Allow"
+    actions   = ["kms:Decrypt"]
+    resources = [var.dataset_kms_key_arn]
+  }
 }
 
 resource "aws_iam_role_policy" "importer_task" {

@@ -33,6 +33,11 @@ variable "dataset_bucket_arn" {
   description = "Private dataset release bucket ARN"
 }
 
+variable "dataset_kms_key_arn" {
+  type        = string
+  description = "KMS key encrypting versioned dataset releases"
+}
+
 variable "ecr_repository_arn" {
   type        = string
   description = "ARN of the application ECR repository"

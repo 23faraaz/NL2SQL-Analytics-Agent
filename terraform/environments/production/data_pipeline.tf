@@ -21,13 +21,27 @@ resource "aws_s3_bucket_public_access_block" "dataset_releases" {
   restrict_public_buckets = true
 }
 
+resource "aws_kms_key" "dataset_releases" {
+  description             = "Encrypt immutable production Olist dataset releases"
+  enable_key_rotation     = true
+  deletion_window_in_days = 30
+
+  tags = merge(local.common_tags, { Purpose = "dataset-releases" })
+}
+
+resource "aws_kms_alias" "dataset_releases" {
+  name          = "alias/production-nl2sql-datasets"
+  target_key_id = aws_kms_key.dataset_releases.key_id
+}
+
 resource "aws_s3_bucket_server_side_encryption_configuration" "dataset_releases" {
   bucket = aws_s3_bucket.dataset_releases.id
 
   rule {
     bucket_key_enabled = true
     apply_server_side_encryption_by_default {
-      sse_algorithm = "AES256"
+      kms_master_key_id = aws_kms_key.dataset_releases.arn
+      sse_algorithm     = "aws:kms"
     }
   }
 }
