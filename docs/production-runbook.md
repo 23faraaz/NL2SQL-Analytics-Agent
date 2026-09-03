@@ -133,6 +133,12 @@ deregister a revision that CD may need as its rollback target. CD validates the
 rollback revision before registering or deploying a replacement, and it only
 attempts rollback after the service update step has succeeded.
 
+The release role grants `elasticloadbalancing:DescribeTargetHealth` on
+`Resource = "*"` because AWS does not support resource-level permissions for
+that read-only action. The workflow still passes the configured production
+target-group ARN, while all ECS update and role-passing permissions remain
+resource-scoped.
+
 ## 7. Required rollback exercise
 
 1. Build a deliberately unhealthy test image through the same CI process on a
