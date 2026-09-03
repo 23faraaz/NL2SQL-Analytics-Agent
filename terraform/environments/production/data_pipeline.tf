@@ -49,6 +49,8 @@ resource "aws_s3_bucket_server_side_encryption_configuration" "dataset_releases"
 resource "aws_s3_bucket_lifecycle_configuration" "dataset_releases" {
   bucket = aws_s3_bucket.dataset_releases.id
 
+  depends_on = [aws_s3_bucket_versioning.dataset_releases]
+
   rule {
     id     = "expire-noncurrent-dataset-releases"
     status = "Enabled"
