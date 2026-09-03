@@ -154,7 +154,6 @@ module "application_deploy_role" {
   github_production_subject = var.github_production_subject
   cluster_arn               = module.ecs.cluster_arn
   service_arn               = module.ecs.service_arn
-  target_group_arn          = module.alb.target_group_arn
   ecr_repository_arn        = data.aws_ecr_repository.app.arn
   task_execution_role_arn   = module.ecs.task_execution_role_arn
   task_role_arn             = module.ecs.task_role_arn

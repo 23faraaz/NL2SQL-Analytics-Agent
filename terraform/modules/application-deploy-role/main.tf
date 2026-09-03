@@ -103,10 +103,12 @@ data "aws_iam_policy_document" "deploy" {
   }
 
   statement {
-    sid       = "InspectExactTargetGroup"
-    effect    = "Allow"
-    actions   = ["elasticloadbalancing:DescribeTargetHealth"]
-    resources = [var.target_group_arn]
+    sid     = "InspectExactTargetGroup"
+    effect  = "Allow"
+    actions = ["elasticloadbalancing:DescribeTargetHealth"]
+    # AWS does not define resource-level permissions for DescribeTargetHealth.
+    # The action is read-only; the workflow still supplies the exact target group.
+    resources = ["*"]
   }
 
   statement {
