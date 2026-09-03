@@ -74,7 +74,9 @@ variable "database_multi_az" {
 variable "database_backup_retention_days" {
   description = "Automated RDS backup retention"
   type        = number
-  default     = 7
+  # AWS Free Plan accounts currently reject longer retention during creation.
+  # Keep point-in-time recovery enabled while remaining deployable on that plan.
+  default = 1
 }
 
 variable "application_secret_arn" {
