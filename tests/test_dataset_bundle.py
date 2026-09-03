@@ -1,10 +1,14 @@
 import json
+import sys
 import zipfile
 from pathlib import Path
 
 import pytest
 
-from etl.dataset_bundle import (
+PROJECT_ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(PROJECT_ROOT))
+
+from etl.dataset_bundle import (  # noqa: E402
     MANIFEST_NAME,
     REQUIRED_RAW_FILES,
     DatasetBundleError,

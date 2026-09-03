@@ -7,7 +7,6 @@ import zipfile
 from pathlib import Path
 from typing import Any
 
-
 REQUIRED_RAW_FILES = (
     "olist_customers_dataset.csv",
     "product_category_name_translation.csv",
