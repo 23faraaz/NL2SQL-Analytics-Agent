@@ -101,8 +101,11 @@ jobs:
           CLUSTER: ${{ vars.ECS_CLUSTER_NAME }}
           SERVICE: ${{ vars.ECS_SERVICE_NAME }}
         run: |
+          set -euo pipefail
           previous="$(aws ecs describe-services --cluster "${CLUSTER}" --services "${SERVICE}" --query 'services[0].taskDefinition' --output text)"
           [[ "${previous}" == arn:aws:ecs:*:task-definition/* ]]
+          status="$(aws ecs describe-task-definition --task-definition "${previous}" --query 'taskDefinition.status' --output text)"
+          [[ "${status}" == "ACTIVE" ]]
           echo "task_definition=${previous}" >> "${GITHUB_OUTPUT}"
 
       - name: Register immutable task-definition revision
@@ -117,7 +120,26 @@ jobs:
           aws ecs describe-task-definition --task-definition "${PREVIOUS}" --query taskDefinition > current-task-definition.json
           jq --arg image "${IMAGE_URI}" '
             .containerDefinitions |= map(if .name == "app" then .image = $image else . end)
-            | del(.taskDefinitionArn, .revision, .status, .requiresAttributes, .compatibilities, .registeredAt, .registeredBy)
+            | {
+                family,
+                taskRoleArn,
+                executionRoleArn,
+                networkMode,
+                containerDefinitions,
+                volumes,
+                placementConstraints,
+                requiresCompatibilities,
+                cpu,
+                memory,
+                pidMode,
+                ipcMode,
+                proxyConfiguration,
+                inferenceAccelerators,
+                ephemeralStorage,
+                runtimePlatform,
+                enableFaultInjection
+              }
+            | with_entries(select(.value != null))
           ' current-task-definition.json > release-task-definition.json
           revision="$(aws ecs register-task-definition \
             --cli-input-json file://release-task-definition.json \
@@ -126,6 +148,7 @@ jobs:
           echo "task_definition=${revision}" >> "${GITHUB_OUTPUT}"
 
       - name: Deploy new revision
+        id: deploy
         env:
           CLUSTER: ${{ vars.ECS_CLUSTER_NAME }}
           SERVICE: ${{ vars.ECS_SERVICE_NAME }}
@@ -184,7 +207,7 @@ jobs:
           aws logs filter-log-events --log-group-name "${LOG_GROUP}" --start-time "${start_ms}" --limit 100
 
       - name: Roll back to previous task definition
-        if: failure() && steps.previous.outputs.task_definition != ''
+        if: failure() && steps.deploy.outcome == 'success' && steps.previous.outputs.task_definition != ''
         env:
           CLUSTER: ${{ vars.ECS_CLUSTER_NAME }}
           SERVICE: ${{ vars.ECS_SERVICE_NAME }}

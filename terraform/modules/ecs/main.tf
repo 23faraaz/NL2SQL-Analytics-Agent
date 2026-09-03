@@ -154,6 +154,7 @@ resource "aws_iam_role" "migration_task" {
 }
 
 resource "aws_ecs_task_definition" "app" {
+  skip_destroy             = true
   family                   = local.service_name
   requires_compatibilities = ["FARGATE"]
   network_mode             = "awsvpc"
@@ -220,6 +221,7 @@ resource "aws_ecs_task_definition" "app" {
 }
 
 resource "aws_ecs_task_definition" "migration" {
+  skip_destroy             = true
   family                   = "${local.service_name}-migration"
   requires_compatibilities = ["FARGATE"]
   network_mode             = "awsvpc"
