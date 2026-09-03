@@ -262,6 +262,20 @@ data "aws_iam_policy_document" "apply" {
     resources = ["*"]
   }
 
+  # RDS names service-managed DB credentials with the rds!db- prefix. Keep
+  # secret creation/tagging out of the broad runtime-management statement.
+  statement {
+    sid    = "CreateOnlyRDSManagedDatabaseSecrets"
+    effect = "Allow"
+    actions = [
+      "secretsmanager:CreateSecret",
+      "secretsmanager:TagResource",
+    ]
+    resources = [
+      "arn:aws:secretsmanager:${data.aws_region.current.region}:${data.aws_caller_identity.current.account_id}:secret:rds!db-*",
+    ]
+  }
+
   statement {
     sid     = "RunProductionDatabaseBootstrap"
     effect  = "Allow"
