@@ -18,6 +18,21 @@ variable "image_uri" {
   }
 }
 
+variable "importer_image_uri" {
+  type        = string
+  description = "Immutable importer ECR image URI"
+
+  validation {
+    condition     = can(regex("@sha256:[0-9a-f]{64}$", var.importer_image_uri))
+    error_message = "importer_image_uri must be qualified by a sha256 registry digest."
+  }
+}
+
+variable "dataset_bucket_arn" {
+  type        = string
+  description = "Private dataset release bucket ARN"
+}
+
 variable "ecr_repository_arn" {
   type        = string
   description = "ARN of the application ECR repository"

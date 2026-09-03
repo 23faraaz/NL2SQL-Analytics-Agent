@@ -28,6 +28,7 @@ certificate_arn        = "arn:aws:acm:eu-west-2:123456789012:certificate/REPLACE
 
 # Supply image_uri from CI/CD, not this file:
 # TF_VAR_image_uri=123456789012.dkr.ecr.eu-west-2.amazonaws.com/nl2sql-agent@sha256:...
+# TF_VAR_importer_image_uri=123456789012.dkr.ecr.eu-west-2.amazonaws.com/nl2sql-agent@sha256:...
 
 # Supply only the ARN of a separately populated secret. Terraform must not
 # receive the provider API key value.

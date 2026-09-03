@@ -12,6 +12,10 @@ inputs:
     description: Target Linux platform matching the ECS runtime architecture
     required: false
     default: linux/amd64
+  dockerfile:
+    description: Dockerfile used for this image
+    required: false
+    default: docker/Dockerfile
 
 outputs:
   image-ref:
@@ -30,7 +34,7 @@ runs:
       run: |
         image_ref="${{ inputs.image-name }}:${{ inputs.image-tag }}"
         docker build \
-          --file docker/Dockerfile \
+          --file "${{ inputs.dockerfile }}" \
           --platform "${{ inputs.platform }}" \
           --label "org.opencontainers.image.revision=${GITHUB_SHA}" \
           --tag "${image_ref}" \

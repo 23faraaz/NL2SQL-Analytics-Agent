@@ -117,6 +117,7 @@ module "ecs" {
   environment                = local.environment
   aws_region                 = var.aws_region
   image_uri                  = var.image_uri
+  importer_image_uri         = var.importer_image_uri
   ecr_repository_arn         = data.aws_ecr_repository.app.arn
   private_subnet_ids         = module.networking.private_subnet_ids
   security_group_id          = module.alb.ecs_task_security_group_id
@@ -128,6 +129,7 @@ module "ecs" {
   database_secret_arn        = var.database_application_secret_arn
   database_master_secret_arn = module.database.master_secret_arn
   application_secret_arn     = var.application_secret_arn
+  dataset_bucket_arn         = aws_s3_bucket.dataset_releases.arn
   desired_count              = var.desired_count
   minimum_count              = var.desired_count
   log_retention_days         = var.log_retention_days

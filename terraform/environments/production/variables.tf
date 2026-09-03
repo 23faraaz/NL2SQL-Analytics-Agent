@@ -134,6 +134,16 @@ variable "desired_count" {
   }
 }
 
+variable "importer_image_uri" {
+  type        = string
+  description = "Immutable ECR image URI for the one-off Olist importer"
+
+  validation {
+    condition     = can(regex("@sha256:[0-9a-f]{64}$", var.importer_image_uri))
+    error_message = "importer_image_uri must be qualified by a sha256 registry digest."
+  }
+}
+
 variable "log_retention_days" {
   description = "CloudWatch application log retention"
   type        = number
