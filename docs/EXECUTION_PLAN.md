@@ -45,7 +45,10 @@ sequence and completion checklist.
 - [ ] Create private encrypted RDS PostgreSQL with AWS-managed master password.
 - [ ] Enable backups, deletion protection, logs, and performance monitoring.
 - [ ] Restrict database access to the ECS task security group.
-- [ ] Run schema migrations as a single-purpose task before service promotion.
+- [x] Run the application-role bootstrap as a single-purpose task before
+  service activation; keep destructive local schema loaders out of production.
+- [ ] Add forward-only, versioned production schema migrations before loading
+  production data.
 - [ ] Prove backup restoration and backward-compatible rollback.
 
 ## Step 6 — ECS runtime

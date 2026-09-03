@@ -95,6 +95,64 @@ resource "aws_iam_role" "task" {
   tags               = local.common_tags
 }
 
+resource "aws_iam_role" "migration_execution" {
+  name               = "${local.service_name}-migration-execution"
+  assume_role_policy = data.aws_iam_policy_document.task_assume.json
+  tags               = local.common_tags
+}
+
+data "aws_iam_policy_document" "migration_execution" {
+  statement {
+    sid    = "PullApplicationImage"
+    effect = "Allow"
+    actions = [
+      "ecr:BatchCheckLayerAvailability",
+      "ecr:BatchGetImage",
+      "ecr:GetDownloadUrlForLayer",
+    ]
+    resources = [var.ecr_repository_arn]
+  }
+
+  statement {
+    sid       = "AuthenticateToECR"
+    effect    = "Allow"
+    actions   = ["ecr:GetAuthorizationToken"]
+    resources = ["*"]
+  }
+
+  statement {
+    sid    = "WriteMigrationLogs"
+    effect = "Allow"
+    actions = [
+      "logs:CreateLogStream",
+      "logs:PutLogEvents",
+    ]
+    resources = ["${aws_cloudwatch_log_group.app.arn}:*"]
+  }
+
+  statement {
+    sid     = "ReadOnlyDatabaseBootstrapSecrets"
+    effect  = "Allow"
+    actions = ["secretsmanager:GetSecretValue"]
+    resources = [
+      var.database_master_secret_arn,
+      var.database_secret_arn,
+    ]
+  }
+}
+
+resource "aws_iam_role_policy" "migration_execution" {
+  name   = "${local.service_name}-migration-execution"
+  role   = aws_iam_role.migration_execution.id
+  policy = data.aws_iam_policy_document.migration_execution.json
+}
+
+resource "aws_iam_role" "migration_task" {
+  name               = "${local.service_name}-migration-task"
+  assume_role_policy = data.aws_iam_policy_document.task_assume.json
+  tags               = local.common_tags
+}
+
 resource "aws_ecs_task_definition" "app" {
   family                   = local.service_name
   requires_compatibilities = ["FARGATE"]
@@ -157,6 +215,52 @@ resource "aws_ecs_task_definition" "app" {
       }
     }
   ])
+
+  tags = local.common_tags
+}
+
+resource "aws_ecs_task_definition" "migration" {
+  family                   = "${local.service_name}-migration"
+  requires_compatibilities = ["FARGATE"]
+  network_mode             = "awsvpc"
+  cpu                      = "256"
+  memory                   = "512"
+  execution_role_arn       = aws_iam_role.migration_execution.arn
+  task_role_arn            = aws_iam_role.migration_task.arn
+
+  runtime_platform {
+    cpu_architecture        = "X86_64"
+    operating_system_family = "LINUX"
+  }
+
+  container_definitions = jsonencode([{
+    name      = "database-bootstrap"
+    image     = var.image_uri
+    essential = true
+    command   = ["python", "-m", "app.bootstrap_database"]
+
+    environment = [
+      { name = "DB_HOST", value = var.database_host },
+      { name = "DB_PORT", value = tostring(var.database_port) },
+      { name = "DB_NAME", value = var.database_name },
+      { name = "DB_APP_USER", value = var.database_username },
+    ]
+
+    secrets = [
+      { name = "DB_MASTER_USER", valueFrom = "${var.database_master_secret_arn}:username::" },
+      { name = "DB_MASTER_PASSWORD", valueFrom = "${var.database_master_secret_arn}:password::" },
+      { name = "DB_APP_PASSWORD", valueFrom = "${var.database_secret_arn}:password::" },
+    ]
+
+    logConfiguration = {
+      logDriver = "awslogs"
+      options = {
+        awslogs-group         = aws_cloudwatch_log_group.app.name
+        awslogs-region        = var.aws_region
+        awslogs-stream-prefix = "migration"
+      }
+    }
+  }])
 
   tags = local.common_tags
 }

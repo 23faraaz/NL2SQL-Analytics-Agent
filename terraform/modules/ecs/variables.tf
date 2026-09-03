@@ -68,6 +68,11 @@ variable "database_secret_arn" {
   description = "Secrets Manager ARN containing the database password"
 }
 
+variable "database_master_secret_arn" {
+  type        = string
+  description = "AWS-managed RDS master secret used only by the migration task"
+}
+
 variable "application_secret_arn" {
   type        = string
   description = "Secrets Manager ARN containing application provider configuration"

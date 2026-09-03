@@ -114,21 +114,23 @@ module "database" {
 module "ecs" {
   source = "../../modules/ecs"
 
-  environment            = local.environment
-  aws_region             = var.aws_region
-  image_uri              = var.image_uri
-  ecr_repository_arn     = data.aws_ecr_repository.app.arn
-  private_subnet_ids     = module.networking.private_subnet_ids
-  security_group_id      = module.alb.ecs_task_security_group_id
-  target_group_arn       = module.alb.target_group_arn
-  database_host          = module.database.address
-  database_port          = module.database.port
-  database_name          = module.database.database_name
-  database_username      = var.database_application_username
-  database_secret_arn    = var.database_application_secret_arn
-  application_secret_arn = var.application_secret_arn
-  desired_count          = var.desired_count
-  log_retention_days     = var.log_retention_days
+  environment                = local.environment
+  aws_region                 = var.aws_region
+  image_uri                  = var.image_uri
+  ecr_repository_arn         = data.aws_ecr_repository.app.arn
+  private_subnet_ids         = module.networking.private_subnet_ids
+  security_group_id          = module.alb.ecs_task_security_group_id
+  target_group_arn           = module.alb.target_group_arn
+  database_host              = module.database.address
+  database_port              = module.database.port
+  database_name              = module.database.database_name
+  database_username          = var.database_application_username
+  database_secret_arn        = var.database_application_secret_arn
+  database_master_secret_arn = module.database.master_secret_arn
+  application_secret_arn     = var.application_secret_arn
+  desired_count              = var.desired_count
+  minimum_count              = var.desired_count
+  log_retention_days         = var.log_retention_days
 }
 
 module "observability" {

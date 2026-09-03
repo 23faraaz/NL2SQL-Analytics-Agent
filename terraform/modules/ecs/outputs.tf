@@ -23,6 +23,21 @@ output "task_definition_arn" {
   description = "Current Terraform-managed task definition"
 }
 
+output "migration_task_definition_arn" {
+  value       = aws_ecs_task_definition.migration.arn
+  description = "One-off database bootstrap task definition"
+}
+
+output "migration_execution_role_arn" {
+  value       = aws_iam_role.migration_execution.arn
+  description = "Execution role restricted to database bootstrap secrets"
+}
+
+output "migration_task_role_arn" {
+  value       = aws_iam_role.migration_task.arn
+  description = "Runtime role for the database bootstrap task"
+}
+
 output "task_execution_role_arn" {
   value       = aws_iam_role.execution.arn
   description = "Task execution role ARN"
