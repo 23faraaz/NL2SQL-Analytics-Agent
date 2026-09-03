@@ -1,8 +1,18 @@
+import sys
+from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pytest
 
-from app.bootstrap_database import bootstrap_application_role, required_environment
+APP_DIR = Path(__file__).resolve().parents[1] / "app"
+if str(APP_DIR) not in sys.path:
+    sys.path.insert(0, str(APP_DIR))
+
+import bootstrap_database  # noqa: E402
+from bootstrap_database import (  # noqa: E402
+    bootstrap_application_role,
+    required_environment,
+)
 
 
 def test_required_environment_rejects_missing_value(monkeypatch):
@@ -39,10 +49,8 @@ def test_bootstrap_updates_existing_role_password():
     assert not any("CREATE ROLE" in statement for statement in statements)
 
 
-@patch("app.bootstrap_database.psycopg2.connect")
+@patch("bootstrap_database.psycopg2.connect")
 def test_main_rolls_back_and_closes_on_failure(connect, monkeypatch):
-    from app import bootstrap_database
-
     for name, value in {
         "DB_HOST": "database.internal",
         "DB_NAME": "nl2sql_ecommerce",
