@@ -78,15 +78,26 @@ be restricted.
 ## 4. Infrastructure deployment
 
 1. Obtain an immutable `repository@sha256:...` image from a successful CI run.
-2. Run `Production infrastructure` manually from `main` with that image URI.
+2. Run `Production infrastructure` manually from `main` with that image URI
+   and `activate_service=false`. This creates the service at zero tasks.
 3. Review create/update/delete/replacement counts and download
    `production-plan.txt`.
 4. Reject unexplained IAM, security-group, database replacement, public access,
    or deletion changes.
-5. Approve the `production` environment only after review.
-6. Save the workflow URL and Terraform outputs as evidence.
-7. Configure the application deployment role and runtime identifiers from the
+5. Approve the `production` environment only after review. The workflow applies
+   the exact plan and runs the idempotent database bootstrap task. Do not
+   activate the service if that task fails.
+6. Run `Production infrastructure` again with the same immutable image and
+   `activate_service=true`. Review and approve this second plan. The bootstrap
+   runs again safely before the service scales to two tasks.
+7. Save both workflow URLs and Terraform outputs as evidence.
+8. Configure the application deployment role and runtime identifiers from the
    outputs as GitHub environment variables.
+
+The bootstrap task creates or reconciles only the `nl2sql_app` login and its
+read-only grants. It does not execute `sql/001_schema.sql`, because that local
+development loader drops existing tables. Production schema changes require
+separate, forward-only versioned migrations.
 
 ## 5. Application release
 

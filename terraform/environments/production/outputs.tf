@@ -13,6 +13,21 @@ output "ecs_task_definition_arn" {
   description = "Terraform-managed task definition revision"
 }
 
+output "database_migration_task_definition_arn" {
+  value       = module.ecs.migration_task_definition_arn
+  description = "One-off database bootstrap task definition"
+}
+
+output "ecs_private_subnet_ids" {
+  value       = module.networking.private_subnet_ids
+  description = "Private subnets used by application and migration tasks"
+}
+
+output "ecs_task_security_group_id" {
+  value       = module.alb.ecs_task_security_group_id
+  description = "Security group used by application and migration tasks"
+}
+
 output "ecs_task_execution_role_arn" {
   value       = module.ecs.task_execution_role_arn
   description = "ECS task execution role used for image, log, and secret access"

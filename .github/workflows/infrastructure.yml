@@ -7,6 +7,11 @@ on:
         description: Initial CI-verified ECR image URI qualified by digest
         required: true
         type: string
+      activate_service:
+        description: Scale the application to two tasks after a successful database bootstrap
+        required: true
+        default: false
+        type: boolean
 
 permissions:
   contents: read
@@ -27,6 +32,7 @@ env:
   TF_VAR_application_secret_arn: ${{ vars.APPLICATION_SECRET_ARN }}
   TF_VAR_database_application_secret_arn: ${{ vars.DATABASE_APPLICATION_SECRET_ARN }}
   TF_VAR_github_production_subject: ${{ vars.PRODUCTION_OIDC_SUBJECT }}
+  TF_VAR_desired_count: ${{ inputs.activate_service && '2' || '0' }}
 
 jobs:
   plan:
@@ -183,6 +189,59 @@ jobs:
         working-directory: ${{ env.TF_WORKING_DIR }}
         run: terraform apply -lock-timeout=5m -auto-approve production.tfplan
 
+      - name: Run idempotent database bootstrap task
+        id: database_bootstrap
+        working-directory: ${{ env.TF_WORKING_DIR }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          cluster="$(terraform output -raw ecs_cluster_name)"
+          task_definition="$(terraform output -raw database_migration_task_definition_arn)"
+          subnets="$(terraform output -json ecs_private_subnet_ids | jq -r 'join(",")')"
+          security_group="$(terraform output -raw ecs_task_security_group_id)"
+
+          task_arn="$(aws ecs run-task \
+            --cluster "${cluster}" \
+            --task-definition "${task_definition}" \
+            --launch-type FARGATE \
+            --network-configuration "awsvpcConfiguration={subnets=[${subnets}],securityGroups=[${security_group}],assignPublicIp=DISABLED}" \
+            --query 'tasks[0].taskArn' \
+            --output text)"
+
+          [[ "${task_arn}" == arn:aws:ecs:*:task/* ]]
+          aws ecs wait tasks-stopped --cluster "${cluster}" --tasks "${task_arn}"
+
+          exit_code="$(aws ecs describe-tasks \
+            --cluster "${cluster}" \
+            --tasks "${task_arn}" \
+            --query 'tasks[0].containers[?name==`database-bootstrap`].exitCode | [0]' \
+            --output text)"
+          stopped_reason="$(aws ecs describe-tasks \
+            --cluster "${cluster}" \
+            --tasks "${task_arn}" \
+            --query 'tasks[0].stoppedReason' \
+            --output text)"
+
+          echo "Database bootstrap task: ${task_arn}" >> "${GITHUB_STEP_SUMMARY}"
+          if [[ "${exit_code}" != "0" ]]; then
+            echo "Database bootstrap failed: ${stopped_reason}" >&2
+            exit 1
+          fi
+
+      - name: Activate production application service
+        if: inputs.activate_service
+        working-directory: ${{ env.TF_WORKING_DIR }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          cluster="$(terraform output -raw ecs_cluster_name)"
+          service="$(terraform output -raw ecs_service_name)"
+          aws ecs update-service \
+            --cluster "${cluster}" \
+            --service "${service}" \
+            --desired-count 2 >/dev/null
+          aws ecs wait services-stable --cluster "${cluster}" --services "${service}"
+
       - name: Record infrastructure outputs
         working-directory: ${{ env.TF_WORKING_DIR }}
         run: |
@@ -191,3 +250,4 @@ jobs:
           echo "- ECS cluster: \`$(terraform output -raw ecs_cluster_name)\`" >> "${GITHUB_STEP_SUMMARY}"
           echo "- ECS service: \`$(terraform output -raw ecs_service_name)\`" >> "${GITHUB_STEP_SUMMARY}"
           echo "- Application deploy role: \`$(terraform output -raw application_deploy_role_arn)\`" >> "${GITHUB_STEP_SUMMARY}"
+          echo "- Service activated: \`${{ inputs.activate_service }}\`" >> "${GITHUB_STEP_SUMMARY}"

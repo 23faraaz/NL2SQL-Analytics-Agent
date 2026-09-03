@@ -1,5 +1,7 @@
 data "aws_caller_identity" "current" {}
 
+data "aws_region" "current" {}
+
 data "aws_iam_policy_document" "plan_assume" {
   statement {
     effect  = "Allow"
@@ -256,6 +258,23 @@ data "aws_iam_policy_document" "apply" {
       "sns:Unsubscribe",
     ]
     resources = ["*"]
+  }
+
+  statement {
+    sid     = "RunProductionDatabaseBootstrap"
+    effect  = "Allow"
+    actions = ["ecs:RunTask"]
+    resources = [
+      "arn:aws:ecs:${data.aws_region.current.region}:${data.aws_caller_identity.current.account_id}:task-definition/production-nl2sql-migration:*",
+    ]
+
+    condition {
+      test     = "ArnEquals"
+      variable = "ecs:cluster"
+      values = [
+        "arn:aws:ecs:${data.aws_region.current.region}:${data.aws_caller_identity.current.account_id}:cluster/production-nl2sql",
+      ]
+    }
   }
 
   statement {

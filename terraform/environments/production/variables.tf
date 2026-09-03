@@ -122,13 +122,13 @@ variable "github_production_subject" {
 }
 
 variable "desired_count" {
-  description = "Number of ECS tasks maintained by the service"
+  description = "Number of ECS tasks maintained after database bootstrap; use zero for the foundation run"
   type        = number
-  default     = 2
+  default     = 0
 
   validation {
-    condition     = var.desired_count >= 2
-    error_message = "Production requires at least two application tasks."
+    condition     = contains([0, 2], var.desired_count)
+    error_message = "desired_count must be zero during bootstrap or two when production is activated."
   }
 }
 
