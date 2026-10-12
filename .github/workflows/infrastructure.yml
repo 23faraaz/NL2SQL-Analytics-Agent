@@ -37,6 +37,7 @@ env:
   TF_VAR_application_secret_arn: ${{ vars.APPLICATION_SECRET_ARN }}
   TF_VAR_database_application_secret_arn: ${{ vars.DATABASE_APPLICATION_SECRET_ARN }}
   TF_VAR_github_production_subject: ${{ vars.PRODUCTION_OIDC_SUBJECT }}
+  TF_VAR_alarm_notification_email: ${{ vars.TF_PRODUCTION_ALARM_NOTIFICATION_EMAIL }}
   TF_VAR_desired_count: ${{ inputs.activate_service && '2' || '0' }}
 
 jobs:
