@@ -110,7 +110,7 @@ variable "database_application_username" {
 variable "monthly_budget_usd" {
   description = "Monthly AWS budget threshold"
   type        = number
-  default     = 75
+  default     = 20
 }
 
 variable "github_production_subject" {

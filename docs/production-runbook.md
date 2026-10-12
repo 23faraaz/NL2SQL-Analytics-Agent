@@ -7,7 +7,8 @@ claim Phase 3 complete until the evidence section is filled in.
 
 Record before provisioning:
 
-- Monthly AWS budget: proposed default USD 75.
+- Monthly AWS budget: approved USD 20. The forecast notification fires at
+  80% (USD 16) so there is time to respond before reaching the limit.
 - Availability: proposed cost-optimized two-AZ application with a single NAT
   Gateway and single-AZ RDS.
 - RPO: proposed 24 hours or better with seven-day automated backups.

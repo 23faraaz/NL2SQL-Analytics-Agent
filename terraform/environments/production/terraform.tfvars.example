@@ -40,5 +40,5 @@ database_multi_az             = false
 database_backup_retention_days = 7
 desired_count                 = 0 # bootstrap run; use 2 only after migration succeeds
 log_retention_days            = 30
-monthly_budget_usd             = 75
+monthly_budget_usd             = 20
 github_production_subject      = "repo:OWNER@OWNER_ID/REPOSITORY@REPOSITORY_ID:environment:production"
