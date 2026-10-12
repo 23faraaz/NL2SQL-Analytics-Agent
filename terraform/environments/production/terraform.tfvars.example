@@ -24,7 +24,10 @@ private_subnets = {
 }
 
 nat_gateway_subnet_key = "public-a"
-certificate_arn        = "arn:aws:acm:eu-west-2:123456789012:certificate/REPLACE_ME"
+
+# ACM certificate issued in eu-west-2 for app.faraazmo.co.uk. Complete DNS
+# validation before applying the production ALB configuration.
+certificate_arn = "arn:aws:acm:eu-west-2:123456789012:certificate/REPLACE_ME"
 
 # Supply image_uri from CI/CD, not this file:
 # TF_VAR_image_uri=123456789012.dkr.ecr.eu-west-2.amazonaws.com/nl2sql-agent@sha256:...

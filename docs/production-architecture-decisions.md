@@ -1,6 +1,6 @@
 # Production architecture decisions
 
-Status: proposed baseline for Phase 3
+Status: approved baseline for Phase 3
 
 This document defines the constraints that must be agreed before production
 Terraform and deployment automation are treated as operationally ready.
@@ -20,9 +20,22 @@ deployment, not a high-availability regulated platform.
   metrics and PromQL dashboards justify their additional cost and complexity.
 - Production must have an explicit monthly budget and billing alarms before it
   is left running continuously.
+- Monthly budget warning threshold: `$20 USD`. This is an alert, not a hard
+  spending cap. The environment must not be assumed to fit within `$20 USD`
+  when ALB, NAT Gateway, RDS, and two Fargate tasks run continuously.
+- Availability objective: `99%` per calendar month on a best-effort basis, with
+  planned maintenance excluded and no contractual SLA.
+- Recovery point objective (RPO): `24 hours`.
+- Recovery time objective (RTO): `4 hours` during an operator-attended recovery.
+- Database availability: single-AZ initially (`database_multi_az = false`),
+  accepting database downtime during an AZ failure or maintenance event.
+- Public application hostname: `app.faraazmo.co.uk`, under the registered
+  `faraazmo.co.uk` domain.
+- TLS: an ACM certificate for `app.faraazmo.co.uk` must be issued in
+  `eu-west-2` and validated through DNS before the production apply.
 
-The owner must still choose the maximum monthly budget, required uptime,
-recovery point objective, and recovery time objective before provisioning RDS.
+These values are the approved initial operating targets. A move to continuous
+or business-critical service requires a new cost and resilience review.
 
 ## 2. Pipeline separation
 
@@ -73,10 +86,12 @@ this boundary before production use.
 - The public endpoint uses HTTPS with ACM; HTTP redirects to HTTPS.
 - ALB access logging is enabled with a retention policy.
 
-The NAT design requires an explicit decision. One NAT Gateway is cheaper but
-creates an Availability Zone dependency. One per AZ improves resilience but
-costs more. VPC endpoints for ECR, S3, CloudWatch Logs, and Secrets Manager must
-be compared against NAT traffic and hourly costs before implementation.
+Initial NAT design: one NAT Gateway in the `public-a` subnet in `eu-west-2a`.
+Both private subnets use it, accepting loss of outbound access if that gateway
+or Availability Zone is unavailable. One NAT Gateway per AZ and/or VPC
+endpoints for ECR, S3, CloudWatch Logs, and Secrets Manager are deferred until
+the availability target or measured traffic justifies the additional cost.
+This decision must be revisited before raising the availability objective.
 
 ## 6. Database and migrations
 
