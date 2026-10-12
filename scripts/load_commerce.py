@@ -123,7 +123,7 @@ def execute_schema(
         if not schema_file.is_file():
             raise FileNotFoundError(f"Required schema file is missing: {schema_file}")
 
-        schema_sql = schema_file.read_text(encoding="utf-8")
+        schema_sql = schema_file.read_text(encoding="utf-8-sig")
 
         if not schema_sql.strip():
             raise ValueError(f"Schema file is empty: {schema_file}")
