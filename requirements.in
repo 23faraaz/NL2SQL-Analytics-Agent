@@ -1,6 +1,8 @@
 streamlit
 google-genai
 requests
+# Security floor for CVE-2026-97689 (GHSA-vxq7-64xx-v4gw).
+urllib3>=2.8.0
 jsonschema
 psycopg2-binary
 pandas
