@@ -29,10 +29,9 @@ deployment, not a high-availability regulated platform.
 - Recovery time objective (RTO): `4 hours` during an operator-attended recovery.
 - Database availability: single-AZ initially (`database_multi_az = false`),
   accepting database downtime during an AZ failure or maintenance event.
-- Public application hostname: `app.faraazmo.co.uk`, under the registered
-  `faraazmo.co.uk` domain.
-- TLS: an ACM certificate for `app.faraazmo.co.uk` must be issued in
-  `eu-west-2` and validated through DNS before the production apply.
+- Public application hostname: `faraazmo.co.uk`.
+- TLS: use the issued ACM certificate for `faraazmo.co.uk` in `eu-west-2`.
+  DNS must point the hostname to the production ALB before smoke testing.
 
 These values are the approved initial operating targets. A move to continuous
 or business-critical service requires a new cost and resilience review.
