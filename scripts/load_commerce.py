@@ -18,9 +18,9 @@ logger = get_logger(__name__)
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 
 SCHEMA_FILES = [
-    PROJECT_ROOT / "sql" / "001_schema.sql",
-    PROJECT_ROOT / "sql" / "002_views.sql",
-    PROJECT_ROOT / "sql" / "003_indexes.sql",
+    PROJECT_ROOT / "sql" / "migrations" / "001_initial_schema.sql",
+    PROJECT_ROOT / "sql" / "migrations" / "002_initial_views.sql",
+    PROJECT_ROOT / "sql" / "migrations" / "003_initial_indexes.sql",
     PROJECT_ROOT / "sql" / "migrations" / "004_dataset_imports.sql",
 ]
 
@@ -418,8 +418,6 @@ def load_commerce(
         connection = get_database_connection()
         connection.autocommit = False
 
-        execute_schema(connection)
-
         if dataset_id is not None:
             if len(dataset_id) != 64 or any(
                 character not in "0123456789abcdef" for character in dataset_id
@@ -433,16 +431,22 @@ def load_commerce(
                     "SELECT pg_advisory_xact_lock(hashtext(%s))",
                     ("nl2sql-dataset-import",),
                 )
-                cursor.execute(
-                    "SELECT 1 FROM public.nl2sql_dataset_imports WHERE dataset_id = %s",
-                    (dataset_id,),
-                )
-                if cursor.fetchone() is not None:
-                    connection.rollback()
-                    logger.info(
-                        "Dataset %s was already imported; no changes made", dataset_id
+                cursor.execute("SELECT to_regclass('public.nl2sql_dataset_imports')")
+                if cursor.fetchone()[0] is not None:
+                    cursor.execute(
+                        "SELECT 1 FROM public.nl2sql_dataset_imports "
+                        "WHERE dataset_id = %s",
+                        (dataset_id,),
                     )
-                    return
+                    if cursor.fetchone() is not None:
+                        connection.rollback()
+                        logger.info(
+                            "Dataset %s was already imported; no changes made",
+                            dataset_id,
+                        )
+                        return
+
+        execute_schema(connection)
 
         if require_empty:
             if set(tables_to_load) != set(COMMERCE_TABLES):
