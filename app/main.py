@@ -15,6 +15,7 @@ a business-focused order:
 import logging
 import re
 import sys
+from calendar import monthrange
 from datetime import datetime
 from typing import Any
 
@@ -217,6 +218,48 @@ def _build_unanswerable_explanation() -> str:
         "Try rephrasing using only customers, orders, products, or "
         "payments data."
     )
+
+
+_RELATIVE_DATE_PATTERN = re.compile(
+    r"\b(?:this|current|last|previous)\s+"
+    r"(?:day|week|month|quarter|year)\b|\b(?:today|yesterday)\b",
+    re.IGNORECASE,
+)
+
+
+def _build_relative_date_context(question: str) -> str | None:
+    """Explain how relative dates are interpreted for historical data."""
+
+    if not _RELATIVE_DATE_PATTERN.search(question):
+        return None
+
+    try:
+        metadata = db.get_database_metadata()
+    except db.DatabaseError:
+        return None
+
+    if metadata.get("dataset_type") != "historical":
+        return None
+
+    latest_order = metadata.get("latest_order")
+
+    try:
+        latest_date = datetime.fromisoformat(latest_order)
+    except (TypeError, ValueError):
+        return None
+
+    context = (
+        f"This uses historical data through **{latest_date:%d %B %Y}**; "
+        "relative dates are anchored to that date, not today's date."
+    )
+
+    if re.search(r"\b(?:this|current)\s+month\b", question, re.IGNORECASE):
+        context += f" “This month” means **{latest_date:%B %Y}**."
+
+    if latest_date.day < monthrange(latest_date.year, latest_date.month)[1]:
+        context += f" Data for {latest_date:%B %Y} is partial."
+
+    return context
 
 
 def is_single_value_metric_result(
@@ -429,6 +472,10 @@ def execute_pipeline(
                 explanation = f"The query returned {query_result.row_count:,} rows."
 
             logger.exception("Result explanation failed: %s", exc)
+
+    relative_date_context = _build_relative_date_context(question)
+    if relative_date_context:
+        explanation = f"{explanation}\n\n{relative_date_context}"
 
     followups = llm.suggest_followups(
         question,

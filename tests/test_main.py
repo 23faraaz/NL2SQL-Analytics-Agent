@@ -162,3 +162,42 @@ def test_build_unanswerable_explanation_handles_database_error(monkeypatch):
     explanation = main._build_unanswerable_explanation()
 
     assert "cannot be answered" in explanation
+
+
+def test_relative_date_context_discloses_historical_partial_month(monkeypatch):
+    monkeypatch.setattr(
+        main.db,
+        "get_database_metadata",
+        lambda: {
+            "dataset_type": "historical",
+            "latest_order": "2018-10-17T17:30:18+00:00",
+        },
+    )
+
+    context = main._build_relative_date_context(
+        "How much revenue did we generate this month?"
+    )
+
+    assert "17 October 2018" in context
+    assert "This month” means **October 2018**" in context
+    assert "October 2018 is partial" in context
+    assert "today's date" in context
+
+
+def test_relative_date_context_ignores_questions_without_relative_dates(monkeypatch):
+    def _unexpected_call():
+        raise AssertionError("metadata should not be loaded")
+
+    monkeypatch.setattr(main.db, "get_database_metadata", _unexpected_call)
+
+    assert main._build_relative_date_context("What was revenue in May 2018?") is None
+
+
+def test_relative_date_context_handles_unavailable_metadata(monkeypatch):
+    monkeypatch.setattr(
+        main.db,
+        "get_database_metadata",
+        lambda: {"status": "unavailable"},
+    )
+
+    assert main._build_relative_date_context("What was revenue last month?") is None
