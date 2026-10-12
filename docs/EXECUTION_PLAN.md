@@ -12,7 +12,7 @@ sequence and completion checklist.
 - [x] Promote only the immutable image digest produced by CI.
 - [x] Define secrets, health, database migration, observability, and rollback
   contracts.
-- [ ] Record the approved monthly budget, availability target, RPO, and RTO.
+- [x] Record the approved monthly budget, availability target, RPO, and RTO.
 
 ## Step 2 — Production Terraform foundation
 
@@ -28,7 +28,7 @@ sequence and completion checklist.
   two Availability Zones.
 - [ ] Allow ALB-to-ECS and ECS-to-RDS traffic only on required ports.
 - [ ] Use ACM-backed HTTPS and redirect HTTP to HTTPS.
-- [ ] Record the accepted NAT resiliency/cost tradeoff.
+- [x] Record the accepted NAT resiliency/cost tradeoff.
 
 ## Step 4 — Observability foundation
 
