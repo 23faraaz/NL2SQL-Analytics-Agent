@@ -36,7 +36,7 @@ sequence and completion checklist.
 - [x] Enable ECS Container Insights with enhanced observability.
 - [x] Create ECS, ALB, and RDS alarms and a production dashboard.
 - [x] Route deployment failure events through EventBridge and SNS.
-- [ ] Add and confirm an operator email for SNS and the USD 20 budget warning.
+- [x] Add and confirm an operator email for SNS and the USD 20 budget warning.
 - [x] Keep Prometheus-compatible application metrics bounded in cardinality;
   defer ADOT, Managed Prometheus, and managed Grafana until required.
 
@@ -122,9 +122,12 @@ sequence and completion checklist.
   `893f2c454549436db0d5ed91f77c519e` confirmed unchanged counts.
 - Monitoring: nine alarms are enabled and `OK`; alarm history proves successful
   SNS action publication; the dashboard and EventBridge failure target exist.
-  Operator delivery is not complete because SNS has no confirmed subscription
-  and the budget has no notification until an email is supplied.
+- Operator notifications: infrastructure run `38297304083` added the confirmed
+  SNS subscription and the forecasted 80%-of-USD-20 budget notification for
+  `faraaz-mohammed@outlook.com`. A controlled `production-nl2sql-target-5xx`
+  alarm test successfully executed the SNS action at
+  `2026-10-13T17:34:42Z`; the alarm was then restored to `OK`.
 
-Phase 3 is complete except for confirming the operator notification destination.
+Phase 3 is complete.
 Code existing in the repository is not treated as completion evidence; the run
 IDs and live AWS observations above are the evidence.
