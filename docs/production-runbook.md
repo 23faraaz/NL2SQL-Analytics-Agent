@@ -11,7 +11,8 @@ Record before provisioning:
   80% (USD 16) so there is time to respond before reaching the limit.
 - Availability: proposed cost-optimized two-AZ application with a single NAT
   Gateway and single-AZ RDS.
-- RPO: proposed 24 hours or better with seven-day automated backups.
+- RPO: approved 24 hours with one-day automated backup retention. The current
+  AWS account plan rejects longer retention; reassess when that constraint ends.
 - RTO: proposed four hours for this portfolio environment.
 
 If this is a business-critical service, reject those defaults: use Multi-AZ RDS,
