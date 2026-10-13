@@ -29,9 +29,9 @@ deployment, not a high-availability regulated platform.
 - Recovery time objective (RTO): `4 hours` during an operator-attended recovery.
 - Database availability: single-AZ initially (`database_multi_az = false`),
   accepting database downtime during an AZ failure or maintenance event.
-- Public application hostname: `app.faraazmo.co.uk`, under the registered
+- Public application hostname: `faraazmo.co.uk`, using the registered
   `faraazmo.co.uk` domain.
-- TLS: an ACM certificate for `app.faraazmo.co.uk` must be issued in
+- TLS: an ACM certificate for `faraazmo.co.uk` must be issued in
   `eu-west-2` and validated through DNS before the production apply.
 
 These values are the approved initial operating targets. A move to continuous
@@ -54,8 +54,8 @@ It may register a new task-definition revision and update the ECS service. It
 must not have permission to modify networking, RDS, broad IAM policy, or its own
 OIDC trust policy.
 
-The current `.github/workflows/cd.yml` is a draft and must be split to follow
-this boundary before production use.
+The operational `.github/workflows/cd.yml` follows this boundary and uses the
+narrow application deployment role.
 
 ## 3. Artifact promotion contract
 
@@ -189,6 +189,6 @@ authentication, and monitoring-of-the-monitoring-system responsibilities.
 5. Implement and test RDS backup and restore behavior.
 6. Implement ECS with digest-only task definitions and circuit-breaker rollback.
 7. Apply foundational infrastructure through the infrastructure workflow.
-8. Replace the draft CD workflow with a narrow application-release workflow.
+8. Deploy through the narrow application-release workflow.
 9. Test a successful deployment and an intentionally unhealthy deployment.
 10. Record recovery evidence before declaring Phase 3 complete.
