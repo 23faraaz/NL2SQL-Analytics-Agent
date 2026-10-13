@@ -10,4 +10,4 @@ python-dotenv
 sqlparse
 altair
 # CI supports Python 3.11 and 3.12; NumPy 2.5 requires Python 3.12.
-numpy<2.5
+numpy<2.6
