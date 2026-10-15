@@ -5,6 +5,12 @@ updates:
     schedule:
       interval: weekly
     open-pull-requests-limit: 5
+    ignore:
+      # NumPy 2.5 dropped Python 3.11, which remains in the supported CI
+      # matrix. Remove this exclusion when the project drops Python 3.11.
+      - dependency-name: numpy
+        versions:
+          - ">=2.5,<3"
 
   - package-ecosystem: docker
     directory: /

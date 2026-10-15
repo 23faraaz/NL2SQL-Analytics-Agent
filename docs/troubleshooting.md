@@ -13,6 +13,12 @@ with a clear `FileNotFoundError` naming the missing file if the dataset
 isn't there, rather than silently producing empty data. Check
 `docker compose logs db-init`.
 
+On repeat starts, `db-init` exits successfully when every persisted commerce
+table count matches the processed CSVs. If it reports mismatched tables, the
+volume contains partial or stale data. Inspect it before recovery; only use
+`docker compose down -v` when intentionally deleting and rebuilding all local
+database data.
+
 **`docker compose up --build` fails to pull an image**
 Some network environments (corporate proxies, sandboxed CI) block Docker
 Hub image pulls outright — this shows as a `403 Forbidden` on the image
