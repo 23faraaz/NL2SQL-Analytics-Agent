@@ -51,20 +51,53 @@ Runtime, data, and control paths are deliberately separated:
 
 ```text
 Pull request
-  └─> lint + Python 3.11/3.12 tests + repeated-Compose regression
-      └─> Terraform validation/security scan + application/importer image scan
-          └─> main only: publish the exact scanned image digest
-              └─> production approval → ECS deploy → health gates
-                                             ├─ healthy: release
-                                             └─ unhealthy: rollback
+  ├─ lint and formatting ─────────────────────┐
+  ├─ unit tests: Python 3.11 + 3.12 (matrix) ├─ parallel CI jobs
+  ├─ repeated-Compose initialization test ───────┤
+  └─ Terraform validation and security scan ───────┘
+                         │
+                         ▼
+              build app + importer images
+                         │
+                         ▼
+              Trivy HIGH/CRITICAL gates
+                         │
+                         ▼
+        main only: publish exact scanned images
+                to ECR by commit SHA/digest
+                         │
+                         ▼
+              protected production approval
+                         │
+                         ▼
+                 deploy to ECS Fargate
+                         │
+                         ▼
+        stabilization + ALB health + HTTPS smoke test
+                  ├─ healthy: release
+                  └─ unhealthy: rollback
 ```
 
-Pull requests have read-only repository permissions and cannot request AWS
-credentials. Only a successful `main` run can assume the publishing role.
-Application CD consumes CI-produced digest metadata and cannot modify the VPC,
-RDS, broad IAM policy, or its own trust relationship. Secrets come from Secrets
-Manager; runtime dependency graphs are hash-locked; generated SQL is limited by
-an AST-based read-only validator and database statement timeout.
+The Python 3.11/3.12 matrix and independent lint, Compose, Terraform, and image
+jobs run in parallel for fast feedback. Workflow concurrency cancels superseded
+runs so an older release cannot overtake a newer commit. Pull requests have
+read-only repository permissions and cannot request AWS credentials; only a
+successful `main` run can exchange GitHub's OIDC token for short-lived,
+least-privilege AWS credentials.
+
+CI builds and scans the application and importer once, then transfers those
+exact artifacts to the trusted publishing job. ECR records immutable commit
+tags and content digests, while CD verifies the CI metadata and deploys the
+digest-qualified image instead of rebuilding it. The protected `production`
+environment supplies the manual approval boundary. Application CD cannot
+modify the VPC, RDS, broad IAM policy, or its own trust relationship, and ECS
+stabilization, target health, and HTTPS checks drive rollback on failure.
+
+Secrets come from Secrets Manager; runtime dependency graphs are hash-locked;
+generated SQL is limited by an AST-based read-only validator and database
+statement timeout. The implementation is in [CI](.github/workflows/ci.yml),
+[application CD](.github/workflows/cd.yml), and the detailed
+[CI/CD trust model](docs/ci-cd.md).
 
 ## Evidence, not just configuration
 
