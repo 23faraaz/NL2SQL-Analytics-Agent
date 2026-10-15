@@ -34,6 +34,7 @@ services:
       DB_USER: ${DB_USER}
       DB_PASSWORD: ${DB_PASSWORD}
       ETL_AUGMENTATION_SEED: ${ETL_AUGMENTATION_SEED:-42}
+      SKIP_IF_ALREADY_LOADED: "true"
     volumes:
       - ./data:/app/data
     depends_on:

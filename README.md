@@ -51,8 +51,10 @@ docker compose up --build
 This builds the app image and a separate one-shot `db-init` image, starts
 PostgreSQL, waits for it to be healthy, then `db-init` creates the `commerce`
 schema and runs the full pipeline (real ETL → synthetic augmentation → load)
-before the app starts. The app will not start until `db-init` completes
-successfully. Visit `http://localhost:8501`.
+before the app starts. On later starts, `db-init` verifies that every persisted
+table count matches its processed CSV and exits successfully without reloading.
+It refuses partial or mismatched state rather than overwriting data. The app will
+not start until this check completes. Visit `http://localhost:8501`.
 
 ## Run locally without Docker
 

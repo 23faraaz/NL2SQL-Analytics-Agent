@@ -11,7 +11,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: production-application
+  group: production-application-${{ github.event.workflow_run.event }}-${{ github.event.workflow_run.head_branch }}
   cancel-in-progress: false
 
 jobs:

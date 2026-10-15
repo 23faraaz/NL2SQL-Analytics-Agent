@@ -1,0 +1,12 @@
+services:
+  db:
+    ports: !reset []
+
+  db-init:
+    command: ["python", "-m", "scripts.load_commerce"]
+    volumes:
+      - ./tests/fixtures/compose-data:/app/data:ro
+
+  app:
+    profiles:
+      - excluded

@@ -68,6 +68,22 @@ jobs:
       - name: Run unit tests
         run: pytest -m "not integration" --strict-markers
 
+  compose-regression:
+    name: Repeated Compose initialization
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Prove repeated database initialization succeeds
+        env:
+          DB_NAME: nl2sql_compose_regression
+          DB_USER: nl2sql_test
+          DB_PASSWORD: compose-regression-only
+        run: bash tests/integration/compose-repeated-up.sh
+
   terraform:
     name: Terraform validation and security
     runs-on: ubuntu-24.04
@@ -109,6 +125,7 @@ jobs:
     needs:
       - lint-format
       - unit-tests
+      - compose-regression
       - terraform
     runs-on: ubuntu-24.04
     timeout-minutes: 25

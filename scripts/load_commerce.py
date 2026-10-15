@@ -402,6 +402,7 @@ def load_commerce(
     dataset_id: str | None = None,
     source_version: str | None = None,
     require_empty: bool = False,
+    skip_if_already_loaded: bool = False,
 ) -> None:
     """
     Create the canonical commerce schema and populate it with whichever
@@ -447,6 +448,43 @@ def load_commerce(
                         return
 
         execute_schema(connection)
+
+        if skip_if_already_loaded:
+            expected_existing_counts = {
+                table_name: count_csv_rows(PROCESSED_DATA_DIR / f"{table_name}.csv")
+                for table_name in tables_to_load
+            }
+            actual_existing_counts = {
+                table_name: get_table_row_count(connection, table_name)
+                for table_name in tables_to_load
+            }
+
+            if actual_existing_counts == expected_existing_counts:
+                connection.rollback()
+                logger.info(
+                    "Commerce data already matches all %d processed files; "
+                    "no changes made",
+                    len(tables_to_load),
+                )
+                return
+
+            nonempty = {
+                table_name: count
+                for table_name, count in actual_existing_counts.items()
+                if count > 0
+            }
+            if nonempty:
+                mismatched = sorted(
+                    table_name
+                    for table_name in tables_to_load
+                    if actual_existing_counts[table_name]
+                    != expected_existing_counts[table_name]
+                )
+                raise ValueError(
+                    "Existing local commerce data does not match the processed "
+                    "files; refusing an unsafe reload. Mismatched tables: "
+                    + ", ".join(mismatched)
+                )
 
         if require_empty:
             if set(tables_to_load) != set(COMMERCE_TABLES):
@@ -528,8 +566,15 @@ def load_commerce(
 
 
 def main() -> int:
+    skip_value = os.getenv("SKIP_IF_ALREADY_LOADED", "false").strip().lower()
+
     try:
-        load_commerce()
+        if skip_value not in {"true", "false"}:
+            raise ValueError("SKIP_IF_ALREADY_LOADED must be either 'true' or 'false'")
+
+        load_commerce(
+            skip_if_already_loaded=skip_value == "true",
+        )
         return 0
 
     except Exception:
