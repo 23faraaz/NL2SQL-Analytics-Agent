@@ -82,7 +82,7 @@ jobs:
           DB_NAME: nl2sql_compose_regression
           DB_USER: nl2sql_test
           DB_PASSWORD: compose-regression-only
-        run: tests/integration/compose-repeated-up.sh
+        run: bash tests/integration/compose-repeated-up.sh
 
   terraform:
     name: Terraform validation and security
