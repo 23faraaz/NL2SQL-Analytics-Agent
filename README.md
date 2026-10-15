@@ -30,6 +30,19 @@ rollback, database recovery, observable failure modes, and repeatable imports.
 | Recovery and operations | Tested RDS point-in-time restore, nine CloudWatch alarms, EventBridge, SNS, and budget alerts |
 | Local reproducibility | Docker Compose with idempotent database initialization tested across repeated starts |
 
+## Product preview
+
+The production application combines deterministic commerce dashboards with a
+guarded natural-language analytics assistant.
+
+### Revenue analytics
+
+![Revenue analytics dashboard](docs/screenshots/revenue-analytics.png)
+
+### Natural-language analytics assistant
+
+![Natural-language analytics assistant](docs/screenshots/nl2sql-assistant.png)
+
 ## Architecture
 
 [![NL2SQL Analytics Agent personal-production AWS architecture](docs/architecture/aws-production-architecture.drawio.png)](docs/architecture/aws-production-architecture.drawio.png)
